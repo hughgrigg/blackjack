@@ -3,6 +3,9 @@ package main
 import (
 	"github.com/gizak/termui"
 	"time"
+	"github.com/hughgrigg/blackjack/cards"
+	"fmt"
+	"bytes"
 )
 
 func main() {
@@ -30,11 +33,14 @@ func main() {
 
 type Ui struct {
 	board *Board
-	view *termui.Par
+	view  *termui.Par
 }
 
 func (ui *Ui) init() {
 	ui.board = &Board{}
+	ui.board.deck = cards.Deck{}
+	ui.board.deck.Init()
+	ui.board.deck.Shuffle(cards.UniqueShuffle)
 	ui.view = termui.NewPar("")
 	ui.view.Float = termui.AlignCenter
 
@@ -48,14 +54,20 @@ func (ui *Ui) init() {
 func (ui *Ui) render() {
 	ui.view.Width = termui.TermWidth()
 	ui.view.Height = termui.TermHeight()
-	ui.view.Text = ui.board.draw()
+	ui.view.Text = ui.board.render()
 	termui.Body.Align()
 	termui.Render(termui.Body)
 }
 
 type Board struct {
+	deck cards.Deck
+	pos int
 }
 
-func (b *Board) draw() string {
-	return time.Now().Format(time.RFC1123)
+func (b *Board) render() string {
+	var buffer bytes.Buffer
+	for _, c := range b.deck.Cards {
+		buffer.WriteString(fmt.Sprintf("%s\n", c.Render()))
+	}
+	return buffer.String()
 }
