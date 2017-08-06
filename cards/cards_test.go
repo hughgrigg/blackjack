@@ -77,10 +77,10 @@ func TestDeck_Render(t *testing.T) {
 func TestDeck_ShuffleFixed(t *testing.T) {
 	deck := Deck{}
 	deck.Init()
-	deck.Shuffle(23)
-	assert.Equal(t, "J♥", deck.Cards[0].Notation())
-	assert.Equal(t, "7♦", deck.Cards[1].Notation())
-	assert.Equal(t, "J♤", deck.Cards[2].Notation())
+	deck.Shuffle(42)
+	assert.Equal(t, "8♥", deck.Cards[0].Notation())
+	assert.Equal(t, "9♦", deck.Cards[1].Notation())
+	assert.Equal(t, "8♦", deck.Cards[2].Notation())
 }
 
 func TestDeck_ShuffleReal(t *testing.T) {
@@ -93,4 +93,89 @@ func TestDeck_ShuffleReal(t *testing.T) {
 	orderB := deck.Render()
 
 	assert.NotEqual(t, orderA, orderB)
+}
+
+func TestHand_Hit(t *testing.T) {
+	hand := Hand{}
+	assert.Empty(t, hand.Cards)
+
+	hand.Hit(Card{Ace, Spades})
+	hand.Hit(Card{Jack, Diamonds})
+	assert.Len(t, hand.Cards, 2)
+	assert.Equal(t, Card{Ace, Spades}, hand.Cards[0])
+	assert.Equal(t, Card{Jack, Diamonds}, hand.Cards[1])
+}
+
+func TestHand_Scores(t *testing.T) {
+	var hand Hand
+
+	hand = Hand{}
+	assert.Equal(t, []int{0}, hand.Scores())
+
+	hand = Hand{[]Card{
+		{Five, Hearts},
+	}}
+	assert.Equal(t, []int{5}, hand.Scores())
+
+	hand = Hand{[]Card{
+		{Five, Hearts},
+		{Three, Hearts},
+	}}
+	assert.Equal(t, []int{8}, hand.Scores())
+
+	hand = Hand{[]Card{
+		{Jack, Hearts},
+		{Queen, Hearts},
+		{King, Hearts},
+	}}
+	assert.Equal(t, []int{30}, hand.Scores())
+
+	hand = Hand{[]Card{
+		{Five, Hearts},
+		{Ace, Hearts},
+	}}
+	assert.Equal(t, []int{6, 16}, hand.Scores())
+
+	hand = Hand{[]Card{
+		{Five, Hearts},
+		{Ace, Hearts},
+		{Three, Hearts},
+	}}
+	assert.Equal(t, []int{9, 19}, hand.Scores())
+
+	hand = Hand{[]Card{
+		{Ace, Hearts},
+	}}
+	assert.Equal(t, []int{1, 11}, hand.Scores())
+
+	hand = Hand{[]Card{
+		{Ace, Hearts},
+		{Ace, Spades},
+	}}
+	assert.Equal(t, []int{2, 12, 22}, hand.Scores())
+
+	hand = Hand{[]Card{
+		{Ace, Hearts},
+		{Ace, Spades},
+		{Ace, Diamonds},
+	}}
+	assert.Equal(t, []int{3, 13, 23, 33}, hand.Scores())
+
+	hand = Hand{[]Card{
+		{Ace, Clubs},
+		{Ace, Diamonds},
+		{Ace, Hearts},
+		{Ace, Spades},
+	}}
+	assert.Equal(t, []int{4, 14, 24, 34, 44}, hand.Scores())
+
+	hand = Hand{[]Card{
+		{Two, Hearts},
+		{Ace, Hearts},
+		{Three, Hearts},
+		{Ace, Spades},
+		{King, Diamonds},
+		{Six, Clubs},
+	}}
+	assert.Equal(t, []int{23, 33, 43}, hand.Scores())
 }

@@ -5,6 +5,8 @@ import (
 	"math/rand"
 	"time"
 	"bytes"
+	"github.com/hughgrigg/blackjack/util"
+	"sort"
 )
 
 // Suits
@@ -87,33 +89,32 @@ func (c *Card) Render() string {
 	return c.Notation()
 }
 
-
 //
 // Deck
 //
 type Deck struct {
-	Cards [52]Card
+	Cards []Card
 }
 
 func (d *Deck) Init() {
-	for i, s := range Suits {
-		for j, r := range Ranks {
-			d.Cards[(i*13)+j] = Card{r,s}
+	for _, s := range Suits {
+		for _, r := range Ranks {
+			d.Cards = append(d.Cards, Card{r, s})
 		}
 	}
 }
 
 const UniqueShuffle = iota
+
 func (d *Deck) Shuffle(seed int64) {
 	if seed == UniqueShuffle {
 		seed = time.Now().UnixNano()
 	}
 	rand.Seed(seed)
-	var shuffled [52]Card
-	for i, v := range rand.Perm(52) {
-		shuffled[v] = d.Cards[i]
+	for i := 0; i < 52; i++ {
+		r := i + rand.Intn(52 - i)
+		d.Cards[r], d.Cards[i] = d.Cards[i], d.Cards[r]
 	}
-	d.Cards = shuffled
 }
 
 func (d *Deck) Render() string {
@@ -122,4 +123,33 @@ func (d *Deck) Render() string {
 		buffer.WriteString(c.Render() + " ")
 	}
 	return buffer.String()
+}
+
+//
+// Hand
+//
+type Hand struct {
+	Cards []Card
+}
+
+func (h *Hand) Hit(c Card) {
+	h.Cards = append(h.Cards, c)
+}
+
+// Due to aces being 1 or 11, a hand can be worth different scores.
+func (h *Hand) Scores() []int {
+	scores := []int{0}
+	for _, card := range h.Cards {
+		for i, score := range scores {
+			// Add the first value to each score branch
+			scores[i] += card.Values()[0]
+			for _, cardValue := range card.Values()[1:] {
+				// Make more score branches for further card values
+				scores = append(scores, score + cardValue)
+			}
+		}
+	}
+	scores = util.UniqueInts(scores)
+	sort.Ints(scores)
+	return scores
 }
