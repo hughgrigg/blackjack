@@ -1,4 +1,6 @@
 language: go
+install:
+- go get gopkg.in/check.v1
 before_install:
   - go get github.com/axw/gocov/gocov
   - go get github.com/mattn/goveralls
