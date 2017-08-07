@@ -3,10 +3,11 @@ package cards
 import (
 	"bytes"
 	"fmt"
-	"github.com/hughgrigg/blackjack/util"
 	"math/rand"
 	"sort"
 	"time"
+
+	"github.com/hughgrigg/blackjack/util"
 )
 
 // Suits

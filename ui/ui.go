@@ -1,11 +1,18 @@
 package ui
 
 import (
+	"fmt"
+
+	"bytes"
+	"sort"
+
 	"github.com/gizak/termui"
+	"github.com/hughgrigg/blackjack/game"
 	"github.com/hughgrigg/blackjack/util"
 )
 
 type Display struct {
+	board        *game.Board
 	dealerView   *View
 	deckView     *View
 	playerView   *View
@@ -18,9 +25,24 @@ type Display struct {
 func (d *Display) Init() {
 	d.initViews()
 
-	termui.Handle("/sys/kbd/q", func(termui.Event) {
+	// q is always quit
+	termui.Handle("/sys/kbd/q", func(event termui.Event) {
 		termui.StopLoop()
 	})
+
+	// pass key presses to actions for the game board's current stage
+	actionKeys := []string{"d"}
+	for _, actionKey := range actionKeys {
+		termui.Handle(
+			fmt.Sprintf("/sys/kbd/%s", actionKey),
+			func(termui.Event) {
+				actions := d.board.Stage.Actions()
+				if playerAction, ok := actions[actionKey]; ok {
+					playerAction.Execute(d.board)
+				}
+			},
+		)
+	}
 }
 
 func (d *Display) initViews() {
@@ -89,18 +111,37 @@ func (n NullRenderer) Render() string {
 }
 
 // Allow setting renderer interfaces for each part of the display
-func (d *Display) SetDeck(r Renderer) {
-	d.deckView.renderer = r
+func (d *Display) AttachBoard(b *game.Board) {
+	d.board = b
+
+	d.deckView.renderer = b.Deck
+	d.dealerView.renderer = b.Dealer
+	d.playerView.renderer = b.Player
+	d.eventLogView.renderer = b.Log
+	d.actionsView.renderer = ActionSetRenderer{b}
 }
-func (d *Display) SetDealer(r Renderer) {
-	d.dealerView.renderer = r
+
+type ActionSetRenderer struct {
+	board *game.Board
 }
-func (d *Display) SetPlayer(r Renderer) {
-	d.playerView.renderer = r
-}
-func (d *Display) SetBet(r Renderer) {
-	d.betView.renderer = r
-}
-func (d *Display) SetActions(r Renderer) {
-	d.actionsView.renderer = r
+
+func (asr ActionSetRenderer) Render() string {
+	keys := []string{}
+	for k := range asr.board.Stage.Actions() {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	buffer := bytes.Buffer{}
+	last := keys[len(keys)-1]
+	for _, k := range keys {
+		buffer.WriteString(fmt.Sprintf(
+			"[%s](fg-bold,fg-green): %s",
+			k,
+			asr.board.Stage.Actions()[k].Description),
+		)
+		if k != last {
+			buffer.WriteString(" | ")
+		}
+	}
+	return buffer.String()
 }
