@@ -1,6 +1,8 @@
 Blackjack
 =========
 
+[![Build Status](https://travis-ci.org/hughgrigg/blackjack.svg?branch=master)](https://travis-ci.org/hughgrigg/blackjack)
+
 This is an implementation of the
 [blackjack](https://en.wikipedia.org/wiki/Blackjack) casino game in Go. This
 game is also known as twenty-one.
