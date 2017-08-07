@@ -1,19 +1,19 @@
 package game
 
 import (
-	"github.com/hughgrigg/blackjack/cards"
-	"github.com/stretchr/testify/assert"
 	"testing"
 	"time"
+
+	"github.com/hughgrigg/blackjack/cards"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestBoard_Begin(t *testing.T) {
 	board := Board{}
 	board.Begin(0)
-	time.Sleep(1 * time.Millisecond) // let actions clear
+	time.Sleep(10 * time.Millisecond) // let actions clear
 	assert.NotEmpty(t, board.Deck.Cards)
 	assert.NotEmpty(t, board.Dealer.Render())
-	assert.NotEmpty(t, board.Player.Render())
 }
 
 func TestDealer_Render(t *testing.T) {
