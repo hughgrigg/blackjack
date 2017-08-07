@@ -3,6 +3,7 @@ Blackjack
 
 [![Build Status](https://travis-ci.org/hughgrigg/blackjack.svg?branch=master)](https://travis-ci.org/hughgrigg/blackjack)
 [![Go Report Card](https://goreportcard.com/badge/github.com/hughgrigg/blackjack)](https://goreportcard.com/report/github.com/hughgrigg/blackjack)
+[![Coverage Status](https://coveralls.io/repos/github/hughgrigg/blackjack/badge.svg?branch=master)](https://coveralls.io/github/hughgrigg/blackjack?branch=master)
 
 This is an implementation of the
 [blackjack](https://en.wikipedia.org/wiki/Blackjack) casino game in Go. This
