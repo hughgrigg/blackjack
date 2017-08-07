@@ -1,12 +1,12 @@
 package cards
 
 import (
-	"fmt"
-	"math/rand"
-	"time"
 	"bytes"
+	"fmt"
 	"github.com/hughgrigg/blackjack/util"
+	"math/rand"
 	"sort"
+	"time"
 )
 
 // Suits
@@ -68,6 +68,11 @@ var RankValues = map[Rank]int{
 type Card struct {
 	rank Rank
 	suit Suit
+	show bool
+}
+
+func NewCard(rank Rank, suit Suit) *Card {
+	return &Card{rank, suit, true}
 }
 
 func (c *Card) Values() []int {
@@ -78,7 +83,20 @@ func (c *Card) Values() []int {
 }
 
 func (c *Card) Notation() string {
-	return fmt.Sprintf("%s%s", string(c.rank), string(c.suit))
+	if c.show {
+		return fmt.Sprintf("%s%s", string(c.rank), string(c.suit))
+	}
+	return "🂠 ?"
+}
+
+func (c *Card) FaceDown() *Card {
+	c.show = false
+	return c
+}
+
+func (c *Card) FaceUp() *Card {
+	c.show = true
+	return c
 }
 
 func (c *Card) Render() string {
@@ -93,13 +111,13 @@ func (c *Card) Render() string {
 // Deck
 //
 type Deck struct {
-	Cards []Card
+	Cards []*Card
 }
 
 func (d *Deck) Init() {
 	for _, s := range Suits {
 		for _, r := range Ranks {
-			d.Cards = append(d.Cards, Card{r, s})
+			d.Cards = append(d.Cards, &Card{r, s, true})
 		}
 	}
 }
@@ -112,40 +130,77 @@ func (d *Deck) Shuffle(seed int64) {
 	}
 	rand.Seed(seed)
 	for i := 0; i < 52; i++ {
-		r := i + rand.Intn(52 - i)
+		r := i + rand.Intn(52-i)
 		d.Cards[r], d.Cards[i] = d.Cards[i], d.Cards[r]
 	}
 }
 
-func (d *Deck) Render() string {
-	var buffer bytes.Buffer
-	for _, c := range d.Cards {
-		buffer.WriteString(c.Render() + " ")
+func (d *Deck) Pop() *Card {
+	card := *d.Cards[len(d.Cards)-1]
+	d.Cards = d.Cards[:len(d.Cards)-1]
+	return &card
+}
+
+func (d Deck) Render() string {
+	return fmt.Sprintf("🂠  ×%d", len(d.Cards))
+}
+
+//
+// Hands
+//
+type Hand struct {
+	Cards []*Card
+}
+
+func (h *Hand) Hit(c *Card) {
+	if h.Cards == nil {
+		h.Cards = []*Card{}
+	}
+	h.Cards = append(h.Cards, c)
+}
+
+func (h Hand) Render() string {
+	buffer := bytes.Buffer{}
+	last := len(h.Cards) - 1
+	for i, card := range h.Cards {
+		buffer.WriteString(card.Render())
+		if i != last {
+			buffer.WriteString(", ")
+		}
 	}
 	return buffer.String()
 }
 
-//
-// Hand
-//
-type Hand struct {
-	Cards []Card
+// Player can have many hands
+type HandSet struct {
+	Hands []*Hand
 }
 
-func (h *Hand) Hit(c Card) {
-	h.Cards = append(h.Cards, c)
+func (hs HandSet) Render() string {
+	buffer := bytes.Buffer{}
+	last := len(hs.Hands) - 1
+	for i, hand := range hs.Hands {
+		buffer.WriteString(hand.Render())
+		if i != last {
+			buffer.WriteString(" | ")
+		}
+	}
+	return buffer.String()
 }
 
 // Due to aces being 1 or 11, a hand can be worth different scores.
 func (h *Hand) Scores() []int {
 	scores := []int{0}
 	for _, card := range h.Cards {
+		if !card.show {
+			continue
+		}
 		for i, score := range scores {
 			// Add the first value to each score branch
 			scores[i] += card.Values()[0]
 			for _, cardValue := range card.Values()[1:] {
 				// Make more score branches for further card values
-				scores = append(scores, score + cardValue)
+				scores = append(scores, score+cardValue)
 			}
 		}
 	}

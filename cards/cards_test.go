@@ -1,13 +1,17 @@
 package cards
 
 import (
-	"testing"
 	"github.com/stretchr/testify/assert"
+	"testing"
 )
 
 //
 // Card
 //
+
+func TestNewCard(t *testing.T) {
+
+}
 
 func TestCard_Values(t *testing.T) {
 	expected := map[Rank][]int{
@@ -26,29 +30,41 @@ func TestCard_Values(t *testing.T) {
 		King:  {10},
 	}
 	for rank, values := range expected {
-		card := Card{rank, Spades}
+		card := NewCard(rank, Spades)
 		assert.Equal(t, values, card.Values())
 	}
 }
 
 func TestCard_Notation(t *testing.T) {
-	expected := map[Card]string{
-		{Ace, Spades}:     "A♤",
-		{Queen, Hearts}:   "Q♥",
-		{Two, Clubs}:      "2♧",
-		{Eight, Diamonds}: "8♦",
+	expected := map[*Card]string{
+		NewCard(Ace, Spades):     "A♤",
+		NewCard(Queen, Hearts):   "Q♥",
+		NewCard(Two, Clubs):      "2♧",
+		NewCard(Eight, Diamonds): "8♦",
 	}
 	for card, drawn := range expected {
 		assert.Equal(t, drawn, card.Notation())
 	}
 }
 
+func TestCard_FaceUp(t *testing.T) {
+	card := NewCard(Ace, Spades)
+	card.FaceUp()
+	assert.Equal(t, "A♤", card.Notation())
+}
+
+func TestCard_FaceDown(t *testing.T) {
+	card := NewCard(Ace, Spades)
+	card.FaceDown()
+	assert.Equal(t, "🂠 ?", card.Notation())
+}
+
 func TestCard_Render(t *testing.T) {
-	expected := map[Card]string{
-		{Ten, Clubs}:     "X♧",
-		{King, Spades}:   "K♤",
-		{Five, Hearts}:   "[5♥](fg-red)",
-		{Jack, Diamonds}: "[J♦](fg-red)",
+	expected := map[*Card]string{
+		NewCard(Ten, Clubs):     "X♧",
+		NewCard(King, Spades):   "K♤",
+		NewCard(Five, Hearts):   "[5♥](fg-red)",
+		NewCard(Jack, Diamonds): "[J♦](fg-red)",
 	}
 	for card, drawn := range expected {
 		assert.Equal(t, drawn, card.Render())
@@ -71,7 +87,7 @@ func TestDeck_Init(t *testing.T) {
 func TestDeck_Render(t *testing.T) {
 	deck := Deck{}
 	deck.Init()
-	assert.Equal(t, "A♧ 2♧ 3♧ ", deck.Render()[0:15])
+	assert.Equal(t, "🂠  ×52", deck.Render())
 }
 
 func TestDeck_ShuffleFixed(t *testing.T) {
@@ -83,27 +99,34 @@ func TestDeck_ShuffleFixed(t *testing.T) {
 	assert.Equal(t, "8♦", deck.Cards[2].Notation())
 }
 
-func TestDeck_ShuffleReal(t *testing.T) {
+func TestDeck_Pop(t *testing.T) {
 	deck := Deck{}
 	deck.Init()
-
-	deck.Shuffle(UniqueShuffle)
-	orderA := deck.Render()
-	deck.Shuffle(UniqueShuffle)
-	orderB := deck.Render()
-
-	assert.NotEqual(t, orderA, orderB)
+	deck.Shuffle(42)
+	assert.Equal(t, "5♤", deck.Pop().Notation())
+	assert.Equal(t, "Q♤", deck.Pop().Notation())
 }
+
+//
+// Hand
+//
 
 func TestHand_Hit(t *testing.T) {
 	hand := Hand{}
 	assert.Empty(t, hand.Cards)
 
-	hand.Hit(Card{Ace, Spades})
-	hand.Hit(Card{Jack, Diamonds})
+	hand.Hit(NewCard(Ace, Spades))
+	hand.Hit(NewCard(Jack, Diamonds))
 	assert.Len(t, hand.Cards, 2)
-	assert.Equal(t, Card{Ace, Spades}, hand.Cards[0])
-	assert.Equal(t, Card{Jack, Diamonds}, hand.Cards[1])
+	assert.Equal(t, NewCard(Ace, Spades), hand.Cards[0])
+	assert.Equal(t, NewCard(Jack, Diamonds), hand.Cards[1])
+}
+
+func TestHand_Render(t *testing.T) {
+	hand := Hand{}
+	hand.Hit(NewCard(Ace, Spades))
+	hand.Hit(NewCard(Jack, Clubs))
+	assert.Equal(t, "A♤, J♧", hand.Render())
 }
 
 func TestHand_Scores(t *testing.T) {
@@ -112,70 +135,70 @@ func TestHand_Scores(t *testing.T) {
 	hand = Hand{}
 	assert.Equal(t, []int{0}, hand.Scores())
 
-	hand = Hand{[]Card{
-		{Five, Hearts},
+	hand = Hand{[]*Card{
+		NewCard(Five, Hearts),
 	}}
 	assert.Equal(t, []int{5}, hand.Scores())
 
-	hand = Hand{[]Card{
-		{Five, Hearts},
-		{Three, Hearts},
+	hand = Hand{[]*Card{
+		NewCard(Five, Hearts),
+		NewCard(Three, Hearts),
 	}}
 	assert.Equal(t, []int{8}, hand.Scores())
 
-	hand = Hand{[]Card{
-		{Jack, Hearts},
-		{Queen, Hearts},
-		{King, Hearts},
+	hand = Hand{[]*Card{
+		NewCard(Jack, Hearts),
+		NewCard(Queen, Hearts),
+		NewCard(King, Hearts),
 	}}
 	assert.Equal(t, []int{30}, hand.Scores())
 
-	hand = Hand{[]Card{
-		{Five, Hearts},
-		{Ace, Hearts},
+	hand = Hand{[]*Card{
+		NewCard(Five, Hearts),
+		NewCard(Ace, Hearts),
 	}}
 	assert.Equal(t, []int{6, 16}, hand.Scores())
 
-	hand = Hand{[]Card{
-		{Five, Hearts},
-		{Ace, Hearts},
-		{Three, Hearts},
+	hand = Hand{[]*Card{
+		NewCard(Five, Hearts),
+		NewCard(Ace, Hearts),
+		NewCard(Three, Hearts),
 	}}
 	assert.Equal(t, []int{9, 19}, hand.Scores())
 
-	hand = Hand{[]Card{
-		{Ace, Hearts},
+	hand = Hand{[]*Card{
+		NewCard(Ace, Hearts),
 	}}
 	assert.Equal(t, []int{1, 11}, hand.Scores())
 
-	hand = Hand{[]Card{
-		{Ace, Hearts},
-		{Ace, Spades},
+	hand = Hand{[]*Card{
+		NewCard(Ace, Hearts),
+		NewCard(Ace, Spades),
 	}}
 	assert.Equal(t, []int{2, 12, 22}, hand.Scores())
 
-	hand = Hand{[]Card{
-		{Ace, Hearts},
-		{Ace, Spades},
-		{Ace, Diamonds},
+	hand = Hand{[]*Card{
+		NewCard(Ace, Hearts),
+		NewCard(Ace, Spades),
+		NewCard(Ace, Diamonds),
 	}}
 	assert.Equal(t, []int{3, 13, 23, 33}, hand.Scores())
 
-	hand = Hand{[]Card{
-		{Ace, Clubs},
-		{Ace, Diamonds},
-		{Ace, Hearts},
-		{Ace, Spades},
+	hand = Hand{[]*Card{
+		NewCard(Ace, Clubs),
+		NewCard(Ace, Diamonds),
+		NewCard(Ace, Hearts),
+		NewCard(Ace, Spades),
 	}}
 	assert.Equal(t, []int{4, 14, 24, 34, 44}, hand.Scores())
 
-	hand = Hand{[]Card{
-		{Two, Hearts},
-		{Ace, Hearts},
-		{Three, Hearts},
-		{Ace, Spades},
-		{King, Diamonds},
-		{Six, Clubs},
+	hand = Hand{[]*Card{
+		NewCard(Two, Hearts),
+		NewCard(Ace, Hearts),
+		NewCard(Three, Hearts),
+		NewCard(Ace, Spades),
+		NewCard(King, Diamonds),
+		NewCard(Six, Clubs),
 	}}
 	assert.Equal(t, []int{23, 33, 43}, hand.Scores())
 }
