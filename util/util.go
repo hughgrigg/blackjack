@@ -16,3 +16,11 @@ func UniqueInts(items []int) []int {
 	sort.Ints(unique)
 	return unique
 }
+
+func SumInts(items []int) int {
+	sum := 0
+	for _, item := range items {
+		sum += item
+	}
+	return sum
+}
