@@ -1,17 +1,14 @@
 package cards
 
 import (
-	"github.com/stretchr/testify/assert"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 //
 // Card
 //
-
-func TestNewCard(t *testing.T) {
-
-}
 
 func TestCard_Values(t *testing.T) {
 	expected := map[Rank][]int{
@@ -90,7 +87,7 @@ func TestDeck_Render(t *testing.T) {
 	assert.Equal(t, "🂠  ×52", deck.Render())
 }
 
-func TestDeck_ShuffleFixed(t *testing.T) {
+func TestDeck_Shuffle(t *testing.T) {
 	deck := Deck{}
 	deck.Init()
 	deck.Shuffle(42)
@@ -125,8 +122,15 @@ func TestHand_Hit(t *testing.T) {
 func TestHand_Render(t *testing.T) {
 	hand := Hand{}
 	hand.Hit(NewCard(Ace, Spades))
+	hand.Hit(NewCard(Three, Clubs))
+	assert.Equal(t, "A♤, 3♧  (4 / 14)", hand.Render())
+}
+
+func TestHand_RenderBlackjack(t *testing.T) {
+	hand := Hand{}
+	hand.Hit(NewCard(Ace, Spades))
 	hand.Hit(NewCard(Jack, Clubs))
-	assert.Equal(t, "A♤, J♧", hand.Render())
+	assert.Equal(t, "A♤, J♧  (21)", hand.Render())
 }
 
 func TestHand_Scores(t *testing.T) {
@@ -171,27 +175,38 @@ func TestHand_Scores(t *testing.T) {
 	}}
 	assert.Equal(t, []int{1, 11}, hand.Scores())
 
+	// Show only blackjack if there is a blackjack score
+	hand = Hand{[]*Card{
+		NewCard(Ace, Hearts),
+		NewCard(Queen, Spades),
+	}}
+	assert.Equal(t, []int{21}, hand.Scores())
+
+	// Don't show bust scores if there are other scores that are ok
 	hand = Hand{[]*Card{
 		NewCard(Ace, Hearts),
 		NewCard(Ace, Spades),
 	}}
-	assert.Equal(t, []int{2, 12, 22}, hand.Scores())
+	assert.Equal(t, []int{2, 12}, hand.Scores())
 
+	// Don't show bust scores if there are other scores that are ok
 	hand = Hand{[]*Card{
 		NewCard(Ace, Hearts),
 		NewCard(Ace, Spades),
 		NewCard(Ace, Diamonds),
 	}}
-	assert.Equal(t, []int{3, 13, 23, 33}, hand.Scores())
+	assert.Equal(t, []int{3, 13}, hand.Scores())
 
+	// Don't show bust scores if there are other scores that are ok
 	hand = Hand{[]*Card{
 		NewCard(Ace, Clubs),
 		NewCard(Ace, Diamonds),
 		NewCard(Ace, Hearts),
 		NewCard(Ace, Spades),
 	}}
-	assert.Equal(t, []int{4, 14, 24, 34, 44}, hand.Scores())
+	assert.Equal(t, []int{4, 14}, hand.Scores())
 
+	// Show the minimum bust score if there are only bust scores
 	hand = Hand{[]*Card{
 		NewCard(Two, Hearts),
 		NewCard(Ace, Hearts),
@@ -200,5 +215,5 @@ func TestHand_Scores(t *testing.T) {
 		NewCard(King, Diamonds),
 		NewCard(Six, Clubs),
 	}}
-	assert.Equal(t, []int{23, 33, 43}, hand.Scores())
+	assert.Equal(t, []int{23}, hand.Scores())
 }

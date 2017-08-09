@@ -1,13 +1,14 @@
 package game
 
 import (
+	"bytes"
+	"fmt"
+	"math/big"
 	"time"
 
-	"fmt"
-
-	"bytes"
-
 	"github.com/hughgrigg/blackjack/cards"
+	"github.com/hughgrigg/blackjack/util"
+	"github.com/leekchan/accounting"
 )
 
 // The main game controller object
@@ -15,16 +16,23 @@ type Board struct {
 	Deck        *cards.Deck
 	Dealer      *Dealer
 	Player      *cards.HandSet
+	BetsBalance *BetsBalance
 	Log         *Log
 	Stage       Stage
 	actionQueue chan Action
 }
 
-type Action func(b *Board)
+type Action func(b *Board) bool
+type PlayerAction struct {
+	Execute     Action
+	Description string
+}
+type ActionSet map[string]PlayerAction
 
 func (b *Board) Begin(actionDelay int) {
 	b.Stage = Betting{}
 	b.Log = &Log{}
+	b.BetsBalance = newBetsBalance(-1, -1)
 
 	b.Deck = &cards.Deck{}
 	b.Deck.Init()
@@ -69,34 +77,38 @@ func (b *Board) Deal() {
 	b.resetHands()
 
 	// Dealer's first card
-	b.action(func(b *Board) {
+	b.action(func(b *Board) bool {
 		card := b.Deck.Pop().FaceUp()
-		b.Log.push(fmt.Sprintf("Dealer dealt %s", card.Render()))
+		b.Log.Push(fmt.Sprintf("Dealer dealt %s", card.Render()))
 		b.Dealer.hand.Hit(card)
+		return true
 	})
 
 	// Player first card
 	for _, hand := range b.Player.Hands {
-		b.action(func(b *Board) {
+		b.action(func(b *Board) bool {
 			card := b.Deck.Pop().FaceUp()
-			b.Log.push(fmt.Sprintf("Player dealt %s", card.Render()))
+			b.Log.Push(fmt.Sprintf("Player dealt %s", card.Render()))
 			hand.Hit(card)
+			return true
 		})
 	}
 
 	// Dealer second card
-	b.action(func(b *Board) {
+	b.action(func(b *Board) bool {
 		card := b.Deck.Pop().FaceDown()
-		b.Log.push(fmt.Sprintf("Dealer dealt %s", card.Render()))
+		b.Log.Push(fmt.Sprintf("Dealer dealt %s", card.Render()))
 		b.Dealer.hand.Hit(card)
+		return true
 	})
 
 	// Player second card
 	for _, hand := range b.Player.Hands {
-		b.action(func(b *Board) {
+		b.action(func(b *Board) bool {
 			card := b.Deck.Pop().FaceUp()
-			b.Log.push(fmt.Sprintf("Player dealt %s", card.Render()))
+			b.Log.Push(fmt.Sprintf("Player dealt %s", card.Render()))
 			hand.Hit(card)
+			return true
 		})
 	}
 }
@@ -106,12 +118,16 @@ func (b *Board) Deal() {
 //
 type Log struct {
 	events []string
+	limit  int
 }
 
-func (l *Log) push(event string) {
+func (l *Log) Push(event string) {
 	l.events = append(l.events, event)
-	if len(l.events) > 21 {
-		l.events = l.events[len(l.events)-21:]
+	if l.limit == 0 {
+		l.limit = 20
+	}
+	if len(l.events) > l.limit {
+		l.events = l.events[len(l.events)-l.limit:]
 	}
 }
 
@@ -129,28 +145,70 @@ func (l Log) Render() string {
 }
 
 //
-// Game stages and actions
+// Bets and balance
 //
-type PlayerAction struct {
-	Execute     Action
-	Description string
-}
-type ActionSet map[string]PlayerAction
-
-type Stage interface {
-	Actions() ActionSet
+type BetsBalance struct {
+	// Indexed bets corresponding to each player hand
+	Bets    []*big.Float
+	Balance *big.Float
 }
 
-type Betting struct {
-}
-
-func (b Betting) Actions() ActionSet {
-	return map[string]PlayerAction{
-		"d": {
-			func(b *Board) {
-				b.Deal()
-			},
-			"Deal",
-		},
+func newBetsBalance(bets float64, balance float64) *BetsBalance {
+	if bets <= 0 {
+		bets = 5
 	}
+	if balance <= 0 {
+		balance = 95
+	}
+	bb := BetsBalance{}
+	bb.Bets = append([]*big.Float{}, big.NewFloat(bets))
+	bb.Balance = big.NewFloat(balance)
+	return &bb
+}
+
+func (bb *BetsBalance) Raise(amount float64) bool {
+	if bb.Balance.Cmp(big.NewFloat(amount)) == 1 {
+		bb.Bets[0] = util.AddBigFloat(
+			bb.Bets[0],
+			amount,
+		)
+		bb.Balance = util.AddBigFloat(
+			bb.Balance,
+			-amount,
+		)
+		return true
+	}
+	return false
+}
+
+func (bb *BetsBalance) Lower(amount float64) bool {
+	if bb.Bets[0].Cmp(big.NewFloat(amount)) == 1 {
+		bb.Bets[0] = util.AddBigFloat(
+			bb.Bets[0],
+			-amount,
+		)
+		bb.Balance = util.AddBigFloat(
+			bb.Balance,
+			amount,
+		)
+		return true
+	}
+	return false
+}
+
+var ac = accounting.Accounting{Symbol: "£", Precision: 2}
+
+func (bb BetsBalance) Render() string {
+	buffer := bytes.Buffer{}
+	last := len(bb.Bets) - 1
+	for i, bet := range bb.Bets {
+		buffer.WriteString(fmt.Sprintf(
+			"[%s](fg-bold,fg-cyan)", ac.FormatMoneyBigFloat(bet),
+		))
+		if i != last {
+			buffer.WriteString(" , ")
+		}
+	}
+	buffer.WriteString(fmt.Sprintf(" / %s", ac.FormatMoneyBigFloat(bb.Balance)))
+	return buffer.String()
 }

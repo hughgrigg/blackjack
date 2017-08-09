@@ -169,6 +169,9 @@ func (h Hand) Render() string {
 			buffer.WriteString(", ")
 		}
 	}
+	buffer.WriteString(fmt.Sprintf(
+		"  (%s)", scoresRenderer{h.Scores()}.Render(),
+	))
 	return buffer.String()
 }
 
@@ -205,7 +208,46 @@ func (h *Hand) Scores() []int {
 			}
 		}
 	}
+	// If we have blackjack then return that alone
+	for _, score := range scores {
+		if score == 21 {
+			return []int{21}
+		}
+	}
 	scores = util.UniqueInts(scores)
+	scores = sanitiseScores(scores)
 	sort.Ints(scores)
 	return scores
+}
+
+func sanitiseScores(scores []int) []int {
+	// Don't give bust scores if there are other scores that are ok
+	minScore := util.MinInt(scores)
+	if minScore <= 21 {
+		okScores := []int{}
+		for _, score := range scores {
+			if score <= 21 {
+				okScores = append(okScores, score)
+			}
+		}
+		return okScores
+	}
+	// Give the minimum bust score if there are only bust scores
+	return []int{minScore}
+}
+
+type scoresRenderer struct {
+	scores []int
+}
+
+func (sr scoresRenderer) Render() string {
+	buffer := bytes.Buffer{}
+	last := len(sr.scores) - 1
+	for i, score := range sr.scores {
+		buffer.WriteString(fmt.Sprintf("%d", score))
+		if i != last {
+			buffer.WriteString(" / ")
+		}
+	}
+	return buffer.String()
 }

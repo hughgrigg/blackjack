@@ -1,9 +1,8 @@
 package ui
 
 import (
-	"fmt"
-
 	"bytes"
+	"fmt"
 	"sort"
 
 	"github.com/gizak/termui"
@@ -12,14 +11,14 @@ import (
 )
 
 type Display struct {
-	board        *game.Board
-	dealerView   *View
-	deckView     *View
-	playerView   *View
-	betView      *View
-	eventLogView *View
-	actionsView  *View
-	views        []*View
+	board          *game.Board
+	dealerView     *View
+	deckView       *View
+	playerView     *View
+	betBalanceView *View
+	eventLogView   *View
+	actionsView    *View
+	views          []*View
 }
 
 func (d *Display) Init() {
@@ -31,18 +30,27 @@ func (d *Display) Init() {
 	})
 
 	// pass key presses to actions for the game board's current stage
-	actionKeys := []string{"d"}
-	for _, actionKey := range actionKeys {
-		termui.Handle(
-			fmt.Sprintf("/sys/kbd/%s", actionKey),
-			func(termui.Event) {
-				actions := d.board.Stage.Actions()
-				if playerAction, ok := actions[actionKey]; ok {
-					playerAction.Execute(d.board)
-				}
-			},
-		)
-	}
+	termui.Handle(
+		"/sys/kbd",
+		func(e termui.Event) {
+			evtKbd, ok := e.Data.(termui.EvtKbd)
+			if !ok {
+				return
+			}
+			actions := d.board.Stage.Actions()
+			playerAction, ok := actions[evtKbd.KeyStr]
+			if !ok {
+				return
+			}
+			acted := playerAction.Execute(d.board)
+			if acted {
+				d.board.Log.Push(fmt.Sprintf(
+					">> [%s](fg-bold,fg-green)",
+					playerAction.Description,
+				))
+			}
+		},
+	)
 }
 
 func (d *Display) initViews() {
@@ -51,13 +59,13 @@ func (d *Display) initViews() {
 	d.dealerView.BorderLabelFg = termui.ColorRed
 	d.playerView = d.NewView("Player's Hand", 5)
 	d.playerView.BorderLabelFg = termui.ColorGreen
-	d.betView = d.NewView("Bet / Balance", 5)
+	d.betBalanceView = d.NewView("Bets / Balance", 5)
 	d.actionsView = d.NewView("Actions", 5)
 	d.eventLogView = d.NewView("Game Log", util.SumInts([]int{
 		d.deckView.Height,
 		d.dealerView.Height,
 		d.playerView.Height,
-		d.betView.Height,
+		d.betBalanceView.Height,
 		d.actionsView.Height,
 	}))
 	termui.Body.AddRows(
@@ -68,7 +76,7 @@ func (d *Display) initViews() {
 				d.deckView,
 				d.dealerView,
 				d.playerView,
-				d.betView,
+				d.betBalanceView,
 				d.actionsView,
 			),
 			termui.NewCol(5, 0, d.eventLogView),
@@ -117,6 +125,7 @@ func (d *Display) AttachBoard(b *game.Board) {
 	d.deckView.renderer = b.Deck
 	d.dealerView.renderer = b.Dealer
 	d.playerView.renderer = b.Player
+	d.betBalanceView.renderer = b.BetsBalance
 	d.eventLogView.renderer = b.Log
 	d.actionsView.renderer = ActionSetRenderer{b}
 }
@@ -127,17 +136,28 @@ type ActionSetRenderer struct {
 
 func (asr ActionSetRenderer) Render() string {
 	keys := []string{}
-	for k := range asr.board.Stage.Actions() {
+	actions := asr.board.Stage.Actions()
+	for k := range actions {
 		keys = append(keys, k)
 	}
 	sort.Strings(keys)
+	// Add quit at the end of the actions
+	actions["q"] = game.PlayerAction{
+		Execute: func(*game.Board) bool {
+			termui.StopLoop()
+			return true
+		},
+		Description: "Quit",
+	}
+	keys = append(keys, "q")
 	buffer := bytes.Buffer{}
 	last := keys[len(keys)-1]
 	for _, k := range keys {
 		buffer.WriteString(fmt.Sprintf(
 			"[%s](fg-bold,fg-green): %s",
 			k,
-			asr.board.Stage.Actions()[k].Description),
+			actions[k].Description,
+		),
 		)
 		if k != last {
 			buffer.WriteString(" | ")

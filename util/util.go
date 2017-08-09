@@ -1,6 +1,7 @@
 package util
 
 import (
+	"math/big"
 	"sort"
 )
 
@@ -23,4 +24,20 @@ func SumInts(items []int) int {
 		sum += item
 	}
 	return sum
+}
+
+func MinInt(items []int) int {
+	min := items[0]
+	for _, item := range items {
+		if item < min {
+			min = item
+		}
+	}
+	return min
+}
+
+func AddBigFloat(x *big.Float, y float64) *big.Float {
+	var newVal big.Float
+	newVal.Add(x, big.NewFloat(y))
+	return &newVal
 }

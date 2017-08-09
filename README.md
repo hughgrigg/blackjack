@@ -22,8 +22,6 @@ go test -v ./...
 
 ## Todo
 
- - Drawing the board
- - Dealing
  - Win
  - Loss
  - Bust
