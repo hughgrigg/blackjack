@@ -160,6 +160,19 @@ func (h *Hand) Hit(c *Card) {
 	h.Cards = append(h.Cards, c)
 }
 
+func (h *Hand) IsBust() bool {
+	return util.MinInt(h.Scores()) > 21
+}
+
+func (h *Hand) HasBlackJack() bool {
+	for _, score := range h.Scores() {
+		if score == 21 {
+			return true
+		}
+	}
+	return false
+}
+
 func (h Hand) Render() string {
 	buffer := bytes.Buffer{}
 	last := len(h.Cards) - 1
