@@ -1,10 +1,11 @@
 package main
 
 import (
+	"time"
+
 	"github.com/gizak/termui"
 	"github.com/hughgrigg/blackjack/game"
 	"github.com/hughgrigg/blackjack/ui"
-	"time"
 )
 
 func main() {
@@ -16,14 +17,14 @@ func main() {
 
 	board := newBoard()
 	display := newDisplay()
-	linkBoardWithDisplay(board, display)
+	display.AttachBoard(board)
 
 	termui.Loop()
 }
 
 func newBoard() *game.Board {
 	board := &game.Board{}
-	board.Begin(700)
+	board.Begin(600)
 	return board
 }
 
@@ -37,10 +38,4 @@ func newDisplay() *ui.Display {
 		}
 	}()
 	return display
-}
-
-func linkBoardWithDisplay(b *game.Board, d *ui.Display) {
-	d.SetDeck(b.Deck)
-	d.SetDealer(b.Dealer)
-	d.SetPlayer(b.Player)
 }
