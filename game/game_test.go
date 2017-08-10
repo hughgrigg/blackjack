@@ -6,9 +6,52 @@ import (
 
 	"math/big"
 
+	"time"
+
 	"github.com/hughgrigg/blackjack/cards"
 	"github.com/stretchr/testify/assert"
 )
+
+//
+// Board
+//
+func TestBoard_ActionDelay(t *testing.T) {
+	board := Board{}
+	board.Begin(100)
+
+	start := time.Now()
+	board.action(func(b *Board) bool {
+		return true
+	})
+	board.wg.Wait()
+
+	// Action should have been delayed by 100ms
+	assert.True(
+		t,
+		time.Since(start).Nanoseconds() > 100000000, // = 100ms
+		"Board action should have been delayed by 100ms",
+	)
+}
+
+func TestBoard_HitPlayer(t *testing.T) {
+	board := Board{}
+	board.Begin(0)
+
+	board.HitPlayer()
+	board.wg.Wait()
+
+	// Should have added a card to the player's hand
+	assert.Equal(t, 1, len(board.Player.Hands[0].Cards))
+}
+
+func TestBoard_HitPlayer_BlackJack(t *testing.T) {
+	board := Board{}
+	board.Begin(0)
+}
+
+func TestBoard_HitPlayer_Bust(t *testing.T) {
+
+}
 
 //
 // Dealer

@@ -142,6 +142,22 @@ func (d *Deck) Pop() *Card {
 	return &card
 }
 
+// Ensure the next card to be popped is a specific card.
+func (d *Deck) ForceNext(c *Card) {
+	existing := -1
+	for i, card := range d.Cards {
+		if card == c {
+			existing = i
+		}
+	}
+	last := len(d.Cards) - 1
+	if existing > -1 {
+		d.Cards[last], d.Cards[existing] = d.Cards[existing], d.Cards[last]
+	} else {
+		d.Cards = append(d.Cards, c)
+	}
+}
+
 func (d Deck) Render() string {
 	return fmt.Sprintf("🂠  ×%d", len(d.Cards))
 }
