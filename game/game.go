@@ -177,6 +177,7 @@ func (l Log) Render() string {
 
 //
 // Bets and balance
+// todo: rename this to "bank"?
 //
 type BetsBalance struct {
 	// Indexed bets corresponding to each player hand
@@ -185,10 +186,10 @@ type BetsBalance struct {
 }
 
 func newBetsBalance(bets float64, balance float64) *BetsBalance {
-	if bets <= 0 {
+	if bets < 0 {
 		bets = 5
 	}
-	if balance <= 0 {
+	if balance < 0 {
 		balance = 95
 	}
 	bb := BetsBalance{}
