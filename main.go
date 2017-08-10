@@ -24,7 +24,7 @@ func main() {
 
 func newBoard() *game.Board {
 	board := &game.Board{}
-	board.Begin(600)
+	board.Begin(500)
 	return board
 }
 

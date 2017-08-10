@@ -6,6 +6,8 @@ import (
 	"math/big"
 	"time"
 
+	"sync"
+
 	"github.com/hughgrigg/blackjack/cards"
 	"github.com/hughgrigg/blackjack/util"
 	"github.com/leekchan/accounting"
@@ -20,6 +22,7 @@ type Board struct {
 	Log         *Log
 	Stage       Stage
 	actionQueue chan Action
+	wg          sync.WaitGroup
 }
 
 type Action func(b *Board) bool
@@ -45,17 +48,17 @@ func (b *Board) Begin(actionDelay int) {
 	go func() {
 		for action := range b.actionQueue {
 			action(b)
-			time.Sleep(time.Duration(actionDelay) * time.Millisecond)
+			b.wg.Done()
+			if actionDelay > 0 {
+				time.Sleep(time.Duration(actionDelay) * time.Millisecond)
+			}
 		}
 	}()
 }
 
-type Dealer struct {
-	hand *cards.Hand
-}
-
-func (d Dealer) Render() string {
-	return d.hand.Render()
+func (b *Board) action(a Action) {
+	b.wg.Add(1)
+	b.actionQueue <- a
 }
 
 func (b *Board) resetHands() {
@@ -69,11 +72,16 @@ func (b *Board) resetHands() {
 	b.Player.Hands = []*cards.Hand{{}}
 }
 
-func (b *Board) action(a Action) {
-	b.actionQueue <- a
+type Dealer struct {
+	hand *cards.Hand
+}
+
+func (d Dealer) Render() string {
+	return d.hand.Render()
 }
 
 func (b *Board) Deal() {
+	b.Stage = &Observing{}
 	b.resetHands()
 
 	// Dealer's first card
@@ -85,14 +93,7 @@ func (b *Board) Deal() {
 	})
 
 	// Player first card
-	for _, hand := range b.Player.Hands {
-		b.action(func(b *Board) bool {
-			card := b.Deck.Pop().FaceUp()
-			b.Log.Push(fmt.Sprintf("Player dealt %s", card.Render()))
-			hand.Hit(card)
-			return true
-		})
-	}
+	b.HitPlayer()
 
 	// Dealer second card
 	b.action(func(b *Board) bool {
@@ -103,14 +104,46 @@ func (b *Board) Deal() {
 	})
 
 	// Player second card
-	for _, hand := range b.Player.Hands {
-		b.action(func(b *Board) bool {
-			card := b.Deck.Pop().FaceUp()
-			b.Log.Push(fmt.Sprintf("Player dealt %s", card.Render()))
-			hand.Hit(card)
-			return true
-		})
-	}
+	b.HitPlayer()
+
+	// Begin player stage
+	b.action(func(b *Board) bool {
+		b.Stage = &PlayerStage{}
+		return true
+	})
+}
+
+func (b *Board) HitPlayer() {
+	b.action(func(b *Board) bool {
+		card := b.Deck.Pop().FaceUp()
+		b.Log.Push(fmt.Sprintf("Player dealt %s", card.Render()))
+		b.Player.Hands[len(b.Player.Hands)-1].Hit(card)
+
+		// Has player bust?
+		if b.Player.Hands[0].IsBust() {
+			b.Log.Push(fmt.Sprintf(
+				"Player busts at %d",
+				util.MinInt(b.Player.Hands[0].Scores()),
+			))
+			b.Stage = &Observing{}
+			b.action(func(b *Board) bool {
+				b.Stage = &DealerStage{}
+				return true
+			})
+		}
+
+		// Has player got blackjack?
+		if b.Player.Hands[0].HasBlackJack() {
+			b.Log.Push("Player has blackjack!")
+			b.Stage = &Observing{}
+			b.action(func(b *Board) bool {
+				b.Stage = &DealerStage{}
+				return true
+			})
+		}
+
+		return true
+	})
 }
 
 //

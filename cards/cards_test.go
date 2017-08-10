@@ -133,6 +133,27 @@ func TestHand_RenderBlackjack(t *testing.T) {
 	assert.Equal(t, "A♤, J♧  (21)", hand.Render())
 }
 
+func TestHand_IsBust(t *testing.T) {
+	hand := Hand{}
+
+	hand.Hit(NewCard(Jack, Diamonds))
+	hand.Hit(NewCard(Eight, Hearts))
+	assert.False(t, hand.IsBust())
+
+	hand.Hit(NewCard(Five, Clubs))
+	assert.True(t, hand.IsBust())
+}
+
+func TestHand_HasBlackJack(t *testing.T) {
+	hand := Hand{}
+
+	hand.Hit(NewCard(Ace, Spades))
+	assert.False(t, hand.HasBlackJack())
+
+	hand.Hit(NewCard(Jack, Diamonds))
+	assert.True(t, hand.HasBlackJack())
+}
+
 func TestHand_Scores(t *testing.T) {
 	var hand Hand
 
