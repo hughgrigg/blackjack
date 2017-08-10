@@ -44,7 +44,7 @@ func (o Observing) Actions() ActionSet {
 	return map[string]PlayerAction{}
 }
 
-// Player can hit or stick
+// Player can hit or stand
 type PlayerStage struct {
 }
 
@@ -66,7 +66,7 @@ func (ps PlayerStage) Actions() ActionSet {
 				})
 				return true
 			},
-			"Stick",
+			"Stand",
 		},
 	}
 }

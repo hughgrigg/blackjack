@@ -140,14 +140,14 @@ func TestPlayerStage_Actions_Hit(t *testing.T) {
 	)
 }
 
-func TestPlayerStage_Actions_Stick(t *testing.T) {
+func TestPlayerStage_Actions_Stand(t *testing.T) {
 	playerStage := PlayerStage{}
 
 	board := &Board{}
 	board.Begin(0)
 
-	stick := playerStage.Actions()["s"]
-	stick.Execute(board)
+	stand := playerStage.Actions()["s"]
+	stand.Execute(board)
 	board.wg.Wait()
 
 	// Should move on to dealer stage
