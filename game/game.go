@@ -47,11 +47,9 @@ func (b *Board) Begin(actionDelay int) {
 	b.actionQueue = make(chan Action, 99)
 	go func() {
 		for action := range b.actionQueue {
+			time.Sleep(time.Duration(actionDelay) * time.Millisecond)
 			action(b)
 			b.wg.Done()
-			if actionDelay > 0 {
-				time.Sleep(time.Duration(actionDelay) * time.Millisecond)
-			}
 		}
 	}()
 }
