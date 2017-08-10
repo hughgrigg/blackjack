@@ -178,6 +178,9 @@ func TestBetting_Actions_Deal(t *testing.T) {
 	board := &Board{}
 	board.Begin(0)
 
+	// make sure we don't get blackjack
+	board.Deck.ForceNext(cards.NewCard(cards.Two, cards.Diamonds))
+
 	deal := betting.Actions()["d"]
 	deal.Execute(board)
 	board.wg.Wait()
