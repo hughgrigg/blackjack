@@ -8,10 +8,11 @@ type Stage interface {
 	Actions() ActionSet
 }
 
-// Player can place their bet and then ask to deal
+// Betting is when the player can place their bet and then ask to deal.
 type Betting struct {
 }
 
+// Actions during betting are dealing, raising and lowering.
 func (b Betting) Actions() ActionSet {
 	return map[string]PlayerAction{
 		"d": {
@@ -36,18 +37,21 @@ func (b Betting) Actions() ActionSet {
 	}
 }
 
-// Player can watch events unfold until the next stage (actions are blocked)
+// Observing is when the player can watch events unfold until the next stage,
+// i.e. actions are blocked.
 type Observing struct {
 }
 
+// Actions are empty during observing.
 func (o Observing) Actions() ActionSet {
 	return map[string]PlayerAction{}
 }
 
-// Player can hit or stand
+// PlayerStage is when the player can hit or stand.
 type PlayerStage struct {
 }
 
+// Actions are hit or stand during the player stage.
 func (ps PlayerStage) Actions() ActionSet {
 	return map[string]PlayerAction{
 		"h": {
@@ -62,6 +66,9 @@ func (ps PlayerStage) Actions() ActionSet {
 				b.Stage = &Observing{}
 				b.action(func(b *Board) bool {
 					b.Stage = &DealerStage{}
+					go func() {
+						b.Dealer.Play(b)
+					}()
 					return true
 				})
 				return true
@@ -71,11 +78,12 @@ func (ps PlayerStage) Actions() ActionSet {
 	}
 }
 
-// Dealer hits until > 17
+// DealerStage is the dealer's turn to play.
 type DealerStage struct {
+	Observing
 }
 
-// todo
-func (ds DealerStage) Actions() ActionSet {
-	return map[string]PlayerAction{}
+// Assessment is when bets are won or lost.
+type Assessment struct {
+	Observing
 }

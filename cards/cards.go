@@ -69,9 +69,9 @@ var RankValues = map[Rank]int{
 // Card
 //
 type Card struct {
-	rank Rank
-	suit Suit
-	show bool
+	rank   Rank
+	suit   Suit
+	faceUp bool
 }
 
 // Construct a card with a rank and suit.
@@ -90,21 +90,26 @@ func (c *Card) Values() []int {
 
 // Get a plain string notation for the card, e.g. A♤ for the Ace of Spades.
 func (c *Card) Notation() string {
-	if c.show {
+	if c.faceUp {
 		return fmt.Sprintf("%s%s", string(c.rank), string(c.suit))
 	}
 	return "🂠 ?"
 }
 
-// Turn a card face down so its true notation is not displayed.
+// IsFaceUp sees if a card is facing up.
+func (c *Card) IsFaceUp() bool {
+	return c.faceUp
+}
+
+// FaceDown turns a card face down so its true notation is not displayed.
 func (c *Card) FaceDown() *Card {
-	c.show = false
+	c.faceUp = false
 	return c
 }
 
-// Turn a card face up so its notation is visible.
+// FaceUp turns a card face up so its notation is visible.
 func (c *Card) FaceUp() *Card {
-	c.show = true
+	c.faceUp = true
 	return c
 }
 
@@ -191,15 +196,46 @@ func (h *Hand) Hit(c *Card) {
 	h.Cards = append(h.Cards, c)
 }
 
-// See if the hand is bust, i.e. it has no possible scores less than 22.
+// IsBust sees if the hand is bust, i.e. it has no possible scores less than 22.
 func (h *Hand) IsBust() bool {
 	return util.MinInt(h.Scores()) > 21
 }
 
-// See if the hand has blackjack, i.e. 21 is one of its possible scores.
+// HasBlackJack sees if the hand has blackjack, i.e. 21 is one of its possible
+// scores.
 func (h *Hand) HasBlackJack() bool {
 	for _, score := range h.Scores() {
 		if score == 21 {
+			return true
+		}
+	}
+	return false
+}
+
+// IsSoft sees if a hand has soft scores, i.e. based on an ace being 1 or 11.
+func (h *Hand) IsSoft() bool {
+	// A bust hand can't be soft.
+	if h.IsBust() {
+		return false
+	}
+	for _, card := range h.Cards {
+		if card.rank == Ace {
+			return true
+		}
+	}
+	return false
+}
+
+// HasHard17 sees if a hand has a hard 17 or greater. Dealers hit until hard 17
+// or higher during their turn.
+func (h *Hand) HasHard17() bool {
+	for _, score := range h.Scores() {
+		// Any score over 17 is ok.
+		if score > 17 {
+			return true
+		}
+		// A score of exactly 17 must be a hard 17.
+		if score == 17 && !h.IsSoft() {
 			return true
 		}
 	}
@@ -246,7 +282,7 @@ func (hs HandSet) Render() string {
 func (h *Hand) Scores() []int {
 	scores := []int{0}
 	for _, card := range h.Cards {
-		if !card.show {
+		if !card.faceUp {
 			continue
 		}
 		for i, score := range scores {

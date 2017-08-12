@@ -22,7 +22,7 @@ type Board struct {
 	Log         *Log
 	Stage       Stage
 	actionQueue chan Action
-	wg          sync.WaitGroup
+	wg          *sync.WaitGroup
 }
 
 // An action that can be made on the board, returning boolean success.
@@ -50,7 +50,8 @@ func (b *Board) Begin(actionDelay int) {
 	b.resetHands()
 
 	// Run board actions with a more human interval so the player can keep up.
-	b.actionQueue = make(chan Action, 99)
+	b.wg = &sync.WaitGroup{}
+	b.actionQueue = make(chan Action, 999)
 	go func() {
 		for action := range b.actionQueue {
 			time.Sleep(time.Duration(actionDelay) * time.Millisecond)
@@ -61,9 +62,15 @@ func (b *Board) Begin(actionDelay int) {
 }
 
 // Queue up an action for the board to carry out.
-func (b *Board) action(a Action) {
+func (b *Board) action(a Action) *Board {
 	b.wg.Add(1)
 	b.actionQueue <- a
+	return b
+}
+
+func (b *Board) Wait() *Board {
+	b.wg.Wait()
+	return b
 }
 
 // Initialise the dealer's and player's hands.
@@ -78,12 +85,42 @@ func (b *Board) resetHands() {
 	b.Player.Hands = []*cards.Hand{{}}
 }
 
-// The dealer in the blackjack game.
+// Dealer is the dealer in the blackjack game.
 type Dealer struct {
 	hand *cards.Hand
 }
 
-// Get a rendering of the dealer's hand as a string.
+// Play has the dealer carry out their turn, hitting until hard 17 or more.
+func (d *Dealer) Play(b *Board) {
+	for _, card := range d.hand.Cards {
+		if !card.IsFaceUp() {
+			b.action(func(b *Board) bool {
+				card.FaceUp()
+				b.Log.Push(fmt.Sprintf("Dealer had %s", card.Render()))
+				return true
+			}).Wait()
+		}
+		b.CheckDealerTurn()
+	}
+	for d.MustHit() {
+		b.HitDealer().Wait()
+	}
+}
+
+// MustHit sees if the dealer has to keep hitting. In blackjack, the dealer
+// must keeping hitting until: they have 17 or more (not including soft 17), or
+// they bust.
+func (d *Dealer) MustHit() bool {
+	if d.hand.HasHard17() {
+		return false
+	}
+	if d.hand.IsBust() {
+		return false
+	}
+	return true
+}
+
+// Render gets a rendering of the dealer's hand as a string.
 func (d Dealer) Render() string {
 	return d.hand.Render()
 }
@@ -122,38 +159,91 @@ func (b *Board) Deal() {
 	})
 }
 
-// Hit the player's first hand and advance the game stage if appropriate.
-func (b *Board) HitPlayer() {
+// HitDealer hits the dealer's hand and checks if that ends their turn.
+func (b *Board) HitDealer() *Board {
+	b.action(func(b *Board) bool {
+		card := b.Deck.Pop().FaceUp()
+		b.Log.Push(fmt.Sprintf("Dealer dealt %s", card.Render()))
+		b.Dealer.hand.Hit(card)
+
+		return true
+	}).Wait()
+
+	return b.CheckDealerTurn()
+}
+
+// CheckDealerTurn checks the dealer's hand and advances the game stage once they
+// have hard 17 or higher.
+func (b *Board) CheckDealerTurn() *Board {
+	// Has the dealer bust?
+	if b.Dealer.hand.IsBust() {
+		b.Log.Push(fmt.Sprintf(
+			"Dealer busts at %d",
+			util.MinInt(b.Dealer.hand.Scores()),
+		))
+		b.Stage = &Assessment{} // todo
+		return b
+	}
+
+	// Does the dealer have blackjack?
+	if b.Dealer.hand.HasBlackJack() {
+		b.Log.Push("Dealer has blackjack")
+		b.Stage = &Assessment{} // todo
+		return b
+	}
+
+	// Does the dealer have hard 17 or higher?
+	if b.Dealer.hand.HasHard17() {
+		b.Log.Push(fmt.Sprintf(
+			"Dealer has %d",
+			util.MaxInt(b.Dealer.hand.Scores()),
+		))
+		b.Stage = &Assessment{} // todo
+		return b
+	}
+
+	return b
+}
+
+// HitPlayer hits the player's first hand and advances the game stage if
+// appropriate.
+func (b *Board) HitPlayer() *Board {
 	b.action(func(b *Board) bool {
 		card := b.Deck.Pop().FaceUp()
 		b.Log.Push(fmt.Sprintf("Player dealt %s", card.Render()))
 		b.Player.Hands[len(b.Player.Hands)-1].Hit(card)
 
-		// Has player bust?
-		if b.Player.Hands[0].IsBust() {
-			b.Log.Push(fmt.Sprintf(
-				"Player busts at %d",
-				util.MinInt(b.Player.Hands[0].Scores()),
-			))
-			b.Stage = &Observing{}
-			b.action(func(b *Board) bool {
-				b.Stage = &DealerStage{}
-				return true
-			})
-		}
-
-		// Has player got blackjack?
-		if b.Player.Hands[0].HasBlackJack() {
-			b.Log.Push("Player has blackjack!")
-			b.Stage = &Observing{}
-			b.action(func(b *Board) bool {
-				b.Stage = &DealerStage{}
-				return true
-			})
-		}
-
 		return true
-	})
+	}).Wait()
+
+	// Has player bust?
+	if b.Player.Hands[0].IsBust() {
+		b.Log.Push(fmt.Sprintf(
+			"Player busts at %d",
+			util.MinInt(b.Player.Hands[0].Scores()),
+		))
+		b.Stage = &Observing{}
+		b.action(func(b *Board) bool {
+			b.Stage = &DealerStage{}
+			return true
+		}).Wait()
+
+		b.Dealer.Play(b)
+	}
+
+	// Has player got blackjack?
+	if b.Player.Hands[0].HasBlackJack() {
+		b.Log.Push("Player has blackjack!")
+		b.Stage = &Observing{}
+		b.action(func(b *Board) bool {
+			b.Stage = &DealerStage{}
+			return true
+		}).Wait()
+
+		b.Dealer.Play(b)
+	}
+
+	return b
 }
 
 //

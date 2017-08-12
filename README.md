@@ -24,12 +24,19 @@ Or for nicer output:
 
 ```bash
 go get -u github.com/kyoh86/richgo
+richgo test -v ./...
+```
 
+For code coverage:
+
+```bash
+go get golang.org/x/tools/cmd/cover
+for p in cards game ui util; do go test -coverprofile cover.out ./${p}; done
 ```
 
 ## Todo
 
- - Dealer stage behaviour (i.e. hit to 17)
+ - Break up game.go
  - Refactor "bets and balance" into "bank"
  - Refactor the player's indexed hands into bets being linked to hands
  - Win

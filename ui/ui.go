@@ -22,7 +22,7 @@ type Display struct {
 	views          []*View
 }
 
-// Initialise the displayer with its views and keyboard handlers.
+// Initialise the display with its views and keyboard handlers.
 func (d *Display) Init() {
 	d.initViews()
 
@@ -44,13 +44,11 @@ func (d *Display) Init() {
 			if !ok {
 				return
 			}
-			acted := playerAction.Execute(d.board)
-			if acted {
-				d.board.Log.Push(fmt.Sprintf(
-					">> [%s](fg-bold,fg-green)",
-					playerAction.Description,
-				))
-			}
+			d.board.Log.Push(fmt.Sprintf(
+				">> [%s](fg-bold,fg-green)",
+				playerAction.Description,
+			))
+			playerAction.Execute(d.board)
 		},
 	)
 }
