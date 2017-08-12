@@ -236,6 +236,17 @@ func TestBetting_Actions_Lower(t *testing.T) {
 }
 
 //
+// Observing
+//
+
+// Player should not be able to do anything during an observing stage.
+func TestObserving_Actions(t *testing.T) {
+	observing := Observing{}
+
+	assert.Empty(t, observing.Actions())
+}
+
+//
 // Player stage
 //
 
