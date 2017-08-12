@@ -47,6 +47,8 @@ var Ranks = [13]Rank{
 	Ace, Two, Three, Four, Five, Six, Seven, Eight, Nine, Ten, Jack, Queen, King,
 }
 
+// These are initial values of cards. Card.Values() should be used to get its
+// possible values.
 var RankValues = map[Rank]int{
 	Ace:   1,
 	Two:   2,
@@ -72,10 +74,13 @@ type Card struct {
 	show bool
 }
 
+// Construct a card with a rank and suit.
 func NewCard(rank Rank, suit Suit) *Card {
 	return &Card{rank, suit, true}
 }
 
+// Get the possible values of a card. Ace being either 1 or 11 is generalised
+// to all cards' values being a slice of ints.
 func (c *Card) Values() []int {
 	if c.rank == Ace {
 		return []int{1, 11}
@@ -83,6 +88,7 @@ func (c *Card) Values() []int {
 	return []int{RankValues[c.rank]}
 }
 
+// Get a plain string notation for the card, e.g. A♤ for the Ace of Spades.
 func (c *Card) Notation() string {
 	if c.show {
 		return fmt.Sprintf("%s%s", string(c.rank), string(c.suit))
@@ -90,16 +96,19 @@ func (c *Card) Notation() string {
 	return "🂠 ?"
 }
 
+// Turn a card face down so its true notation is not displayed.
 func (c *Card) FaceDown() *Card {
 	c.show = false
 	return c
 }
 
+// Turn a card face up so its notation is visible.
 func (c *Card) FaceUp() *Card {
 	c.show = true
 	return c
 }
 
+// Get a colour-coded rendering of the card as a string.
 func (c *Card) Render() string {
 	if c.suit == Hearts || c.suit == Diamonds {
 		// Colour syntax provided by gizak/termui
@@ -115,6 +124,7 @@ type Deck struct {
 	Cards []*Card
 }
 
+// Initialise the deck with all 52 cards in order.
 func (d *Deck) Init() {
 	for _, s := range Suits {
 		for _, r := range Ranks {
@@ -125,6 +135,8 @@ func (d *Deck) Init() {
 
 const UniqueShuffle = iota
 
+// Shuffle the deck to an order based on a seed value. UniqueShuffle can be
+// passed to get random shuffling.
 func (d *Deck) Shuffle(seed int64) {
 	if seed == UniqueShuffle {
 		seed = time.Now().UnixNano()
@@ -136,6 +148,7 @@ func (d *Deck) Shuffle(seed int64) {
 	}
 }
 
+// Pop the top card off the deck.
 func (d *Deck) Pop() *Card {
 	card := *d.Cards[len(d.Cards)-1]
 	d.Cards = d.Cards[:len(d.Cards)-1]
@@ -158,6 +171,7 @@ func (d *Deck) ForceNext(c *Card) {
 	}
 }
 
+// Get a rendering of the deck as a string.
 func (d Deck) Render() string {
 	return fmt.Sprintf("🂠  ×%d", len(d.Cards))
 }
@@ -169,6 +183,7 @@ type Hand struct {
 	Cards []*Card
 }
 
+// Add a card to the hand.
 func (h *Hand) Hit(c *Card) {
 	if h.Cards == nil {
 		h.Cards = []*Card{}
@@ -176,10 +191,12 @@ func (h *Hand) Hit(c *Card) {
 	h.Cards = append(h.Cards, c)
 }
 
+// See if the hand is bust, i.e. it has no possible scores less than 22.
 func (h *Hand) IsBust() bool {
 	return util.MinInt(h.Scores()) > 21
 }
 
+// See if the hand has blackjack, i.e. 21 is one of its possible scores.
 func (h *Hand) HasBlackJack() bool {
 	for _, score := range h.Scores() {
 		if score == 21 {
@@ -189,6 +206,7 @@ func (h *Hand) HasBlackJack() bool {
 	return false
 }
 
+// Get a rendering of the hand as a string.
 func (h Hand) Render() string {
 	buffer := bytes.Buffer{}
 	last := len(h.Cards) - 1
@@ -205,10 +223,12 @@ func (h Hand) Render() string {
 }
 
 // Player can have many hands
+// TODO: consider refactoring this into bets being associated with hands
 type HandSet struct {
 	Hands []*Hand
 }
 
+// Get a rendering of the hand set as a string.
 func (hs HandSet) Render() string {
 	buffer := bytes.Buffer{}
 	last := len(hs.Hands) - 1
@@ -221,7 +241,8 @@ func (hs HandSet) Render() string {
 	return buffer.String()
 }
 
-// Due to aces being 1 or 11, a hand can be worth different scores.
+// Get the possible scores for the hand. Due to aces being 1 or 11, a hand can
+// be worth different scores.
 func (h *Hand) Scores() []int {
 	scores := []int{0}
 	for _, card := range h.Cards {
@@ -229,10 +250,11 @@ func (h *Hand) Scores() []int {
 			continue
 		}
 		for i, score := range scores {
-			// Add the first value to each score branch
+			// Add the first value to each score branch.
 			scores[i] += card.Values()[0]
 			for _, cardValue := range card.Values()[1:] {
-				// Make more score branches for further card values
+				// Make more score branches for further card values.
+				// In other words, branch on aces.
 				scores = append(scores, score+cardValue)
 			}
 		}
@@ -249,8 +271,10 @@ func (h *Hand) Scores() []int {
 	return scores
 }
 
+// Make a set of hand scores more human readable.
 func sanitiseScores(scores []int) []int {
-	// Don't give bust scores if there are other scores that are ok
+	// Don't give bust scores if there are other scores that are ok.
+	// E.g. we don't care that 27 is possible if 17 is also possible.
 	minScore := util.MinInt(scores)
 	if minScore <= 21 {
 		okScores := []int{}
@@ -261,7 +285,8 @@ func sanitiseScores(scores []int) []int {
 		}
 		return okScores
 	}
-	// Give the minimum bust score if there are only bust scores
+	// Give the minimum bust score if there are only bust scores.
+	// E.g. knowing we bust on 25 is enough, we don't need to see a 35 as well.
 	return []int{minScore}
 }
 
@@ -269,6 +294,7 @@ type scoresRenderer struct {
 	scores []int
 }
 
+// Get a rendering of the scores as a string.
 func (sr scoresRenderer) Render() string {
 	buffer := bytes.Buffer{}
 	last := len(sr.scores) - 1

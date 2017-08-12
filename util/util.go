@@ -5,6 +5,7 @@ import (
 	"sort"
 )
 
+// Remove duplicate items from a slice of ints.
 func UniqueInts(items []int) []int {
 	set := map[int]bool{}
 	for _, item := range items {
@@ -18,6 +19,7 @@ func UniqueInts(items []int) []int {
 	return unique
 }
 
+// Get the sum of a slice of ints.
 func SumInts(items []int) int {
 	sum := 0
 	for _, item := range items {
@@ -26,6 +28,7 @@ func SumInts(items []int) int {
 	return sum
 }
 
+// Get the minimum from a slice of ints.
 func MinInt(items []int) int {
 	min := items[0]
 	for _, item := range items {
@@ -36,6 +39,7 @@ func MinInt(items []int) int {
 	return min
 }
 
+// And a float64 to a big.Float.
 func AddBigFloat(x *big.Float, y float64) *big.Float {
 	var newVal big.Float
 	newVal.Add(x, big.NewFloat(y))
