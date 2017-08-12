@@ -46,6 +46,13 @@ func TestCard_Notation(t *testing.T) {
 	}
 }
 
+// Should be able to see if a card is face up.
+func TestCard_IsFaceUp(t *testing.T) {
+	card := NewCard(Ace, Spades)
+	card.FaceUp()
+	assert.True(t, card.IsFaceUp())
+}
+
 // A card's rank and suit should be visible when it is face up.
 func TestCard_FaceUp(t *testing.T) {
 	card := NewCard(Ace, Spades)
@@ -192,6 +199,66 @@ func TestHand_HasBlackJack(t *testing.T) {
 	assert.True(t, hand.HasBlackJack())
 }
 
+// A hand should know if it has a soft score.
+func TestHand_IsSoft(t *testing.T) {
+	hand := Hand{}
+	hand.Hit(NewCard(Five, Clubs))
+	hand.Hit(NewCard(Ten, Diamonds))
+	assert.False(t, hand.IsSoft(), "Hand of 5,10 should not be soft.")
+
+	hand = Hand{}
+	hand.Hit(NewCard(Five, Clubs))
+	hand.Hit(NewCard(Ace, Hearts))
+	assert.True(t, hand.IsSoft(), "Hand of 5,A should be soft.")
+
+	hand = Hand{}
+	hand.Hit(NewCard(Five, Clubs))
+	hand.Hit(NewCard(Queen, Hearts))
+	hand.Hit(NewCard(Ten, Spades))
+	assert.False(t, hand.IsSoft(), "Hand of 5,Q,X should be soft.")
+}
+
+// A hand should know if it has hard 17 or higher.
+func TestHand_HasHard17(t *testing.T) {
+	// Under 17 does not have hard 17.
+	hand := Hand{}
+	hand.Hit(NewCard(Five, Clubs))
+	hand.Hit(NewCard(Ten, Diamonds))
+	assert.False(t, hand.HasHard17(), "Hand of 5,10 should not have hard 17.")
+
+	// Exactly 17 without an ace has hard 17.
+	hand = Hand{}
+	hand.Hit(NewCard(Five, Clubs))
+	hand.Hit(NewCard(Ten, Diamonds))
+	hand.Hit(NewCard(Two, Spades))
+	assert.True(t, hand.HasHard17(), "Hand of 5,10,2 should have hard 17.")
+
+	// Over 17 without an ace has hard 17.
+	hand = Hand{}
+	hand.Hit(NewCard(Five, Clubs))
+	hand.Hit(NewCard(Ten, Diamonds))
+	hand.Hit(NewCard(Four, Spades))
+	assert.True(t, hand.HasHard17(), "Hand of 5,10,4 should have hard 17.")
+
+	// 17 with an ace does not have hard 17.
+	hand = Hand{}
+	hand.Hit(NewCard(Ace, Diamonds))
+	hand.Hit(NewCard(Six, Hearts))
+	assert.False(t, hand.HasHard17(), "Hand of A,6 should not have hard 17.")
+
+	// Over 17 with an ace has hard 17.
+	hand = Hand{}
+	hand.Hit(NewCard(Ace, Diamonds))
+	hand.Hit(NewCard(Eight, Hearts))
+	assert.True(t, hand.HasHard17(), "Hand of A,8 should have hard 17.")
+
+	// Blackjack has hard 17.
+	hand = Hand{}
+	hand.Hit(NewCard(Ace, Diamonds))
+	hand.Hit(NewCard(King, Hearts))
+	assert.True(t, hand.HasHard17(), "Hand of A,K should have hard 17.")
+}
+
 // Should be able to calculate the possible scores for a hand, allowing for hard
 // and soft totals (due to ace being 1 or 11).
 func TestHand_Scores(t *testing.T) {
@@ -243,14 +310,14 @@ func TestHand_Scores(t *testing.T) {
 	}}
 	assert.Equal(t, []int{21}, hand.Scores())
 
-	// Don't show bust scores if there are other scores that are ok
+	// Don't faceUp bust scores if there are other scores that are ok
 	hand = Hand{[]*Card{
 		NewCard(Ace, Hearts),
 		NewCard(Ace, Spades),
 	}}
 	assert.Equal(t, []int{2, 12}, hand.Scores())
 
-	// Don't show bust scores if there are other scores that are ok
+	// Don't faceUp bust scores if there are other scores that are ok
 	hand = Hand{[]*Card{
 		NewCard(Ace, Hearts),
 		NewCard(Ace, Spades),
@@ -258,7 +325,7 @@ func TestHand_Scores(t *testing.T) {
 	}}
 	assert.Equal(t, []int{3, 13}, hand.Scores())
 
-	// Don't show bust scores if there are other scores that are ok
+	// Don't faceUp bust scores if there are other scores that are ok
 	hand = Hand{[]*Card{
 		NewCard(Ace, Clubs),
 		NewCard(Ace, Diamonds),

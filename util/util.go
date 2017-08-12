@@ -28,15 +28,38 @@ func SumInts(items []int) int {
 	return sum
 }
 
-// Get the minimum from a slice of ints.
+// MinInt gets the minimum from a slice of ints.
 func MinInt(items []int) int {
+	if len(items) == 0 {
+		return 0
+	}
 	min := items[0]
-	for _, item := range items {
+	if len(items) == 1 {
+		return min
+	}
+	for _, item := range items[1:] {
 		if item < min {
 			min = item
 		}
 	}
 	return min
+}
+
+// MaxInt gets the maximum from a slice of ints.
+func MaxInt(items []int) int {
+	if len(items) == 0 {
+		return 0
+	}
+	max := items[0]
+	if len(items) == 1 {
+		return max
+	}
+	for _, item := range items[1:] {
+		if item > max {
+			max = item
+		}
+	}
+	return max
 }
 
 // And a float64 to a big.Float.

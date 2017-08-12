@@ -20,19 +20,17 @@ import (
 // with what's happening.
 func TestBoard_ActionDelay(t *testing.T) {
 	board := Board{}
-	board.Begin(100)
+	board.Begin(50)
 
 	start := time.Now()
 	board.action(func(b *Board) bool {
 		return true
-	})
-	board.wg.Wait()
+	}).Wait()
 
-	// Action should have been delayed by 100ms
 	assert.True(
 		t,
-		time.Since(start).Nanoseconds() > 100000000, // = 100ms
-		"Board action should have been delayed by 100ms",
+		time.Since(start).Nanoseconds() > 50000000, // = 50ms
+		"Board action should have been delayed by 50ms",
 	)
 }
 
@@ -41,8 +39,7 @@ func TestBoard_HitPlayer(t *testing.T) {
 	board := Board{}
 	board.Begin(0)
 
-	board.HitPlayer()
-	board.wg.Wait()
+	board.HitPlayer().Wait()
 
 	// Should have added a card to the player's hand
 	assert.Equal(t, 1, len(board.Player.Hands[0].Cards))
@@ -50,16 +47,16 @@ func TestBoard_HitPlayer(t *testing.T) {
 
 // The player stage should end if the player gets blackjack.
 func TestBoard_HitPlayer_BlackJack(t *testing.T) {
-	board := Board{}
+	board := &Board{}
 	board.Begin(0)
 
 	board.Deck.ForceNext(cards.NewCard(cards.Ace, cards.Spades))
-	board.HitPlayer()
+	board.HitPlayer().Wait()
 	board.Deck.ForceNext(cards.NewCard(cards.Jack, cards.Diamonds))
-	board.HitPlayer()
-	board.wg.Wait()
+	board.HitPlayer().Wait()
 
-	assert.Equal(t, &DealerStage{}, board.Stage)
+	// Dealer should play through.
+	assert.Equal(t, &Assessment{}, board.Stage)
 }
 
 // The player stage should end if the player busts.
@@ -68,12 +65,68 @@ func TestBoard_HitPlayer_Bust(t *testing.T) {
 	board.Begin(0)
 
 	board.Deck.ForceNext(cards.NewCard(cards.Queen, cards.Spades))
-	board.HitPlayer()
+	board.HitPlayer().Wait()
 	board.Deck.ForceNext(cards.NewCard(cards.Jack, cards.Diamonds))
-	board.HitPlayer()
+	board.HitPlayer().Wait()
 	board.Deck.ForceNext(cards.NewCard(cards.Three, cards.Hearts))
-	board.HitPlayer()
-	board.wg.Wait()
+	board.HitPlayer().Wait()
+
+	// Dealer should play through.
+	assert.Equal(t, &Assessment{}, board.Stage)
+}
+
+// Should be able to hit the dealer's hand.
+func TestBoard_HitDealer(t *testing.T) {
+	board := Board{}
+	board.Begin(0)
+	board.Stage = &DealerStage{}
+
+	board.HitDealer().Wait()
+
+	assert.Equal(t, &DealerStage{}, board.Stage)
+	assert.Equal(t, 1, len(board.Dealer.hand.Cards))
+}
+
+// Should advance to assessment stage if dealer busts.
+func TestBoard_HitDealerBust(t *testing.T) {
+	board := Board{}
+	board.Begin(0)
+	board.Stage = &DealerStage{}
+
+	board.Deck.ForceNext(cards.NewCard(cards.Queen, cards.Spades))
+	board.HitDealer().Wait()
+	board.Deck.ForceNext(cards.NewCard(cards.Queen, cards.Diamonds))
+	board.HitDealer().Wait()
+	board.Deck.ForceNext(cards.NewCard(cards.Queen, cards.Hearts))
+	board.HitDealer().Wait()
+
+	assert.Equal(t, &Assessment{}, board.Stage)
+}
+
+// Should advance to assessment stage if dealer has hard 17.
+func TestBoard_HitDealer_Hard17(t *testing.T) {
+	board := Board{}
+	board.Begin(0)
+	board.Stage = &DealerStage{}
+
+	board.Deck.ForceNext(cards.NewCard(cards.Ten, cards.Spades))
+	board.HitDealer().Wait()
+	board.Deck.ForceNext(cards.NewCard(cards.Seven, cards.Diamonds))
+	board.HitDealer().Wait()
+
+	assert.Equal(t, &Assessment{}, board.Stage)
+}
+
+// Should not advance to assessment stage if dealer has soft 17.
+func TestBoard_HitDealer_Soft17(t *testing.T) {
+	board := Board{}
+	board.Begin(0)
+	board.Stage = &DealerStage{}
+
+	board.Deck.ForceNext(cards.NewCard(cards.Ace, cards.Spades))
+	board.HitDealer().Wait()
+	board.Deck.ForceNext(cards.NewCard(cards.Six, cards.Diamonds))
+	board.HitDealer().Wait()
 
 	assert.Equal(t, &DealerStage{}, board.Stage)
 }
@@ -282,6 +335,6 @@ func TestPlayerStage_Actions_Stand(t *testing.T) {
 	stand.Execute(board)
 	board.wg.Wait()
 
-	// Should move on to dealer stage
-	assert.IsType(t, &DealerStage{}, board.Stage)
+	// Should advance to dealer stage.
+	assert.Equal(t, &DealerStage{}, board.Stage)
 }
