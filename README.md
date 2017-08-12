@@ -20,16 +20,21 @@ You can run all the tests with:
 go test -v ./...
 ```
 
+Or for nicer output:
+
+```bash
+go get -u github.com/kyoh86/richgo
+
+```
+
 ## Todo
 
+ - Dealer stage behaviour (i.e. hit to 17)
+ - Refactor "bets and balance" into "bank"
+ - Refactor the player's indexed hands into bets being linked to hands
  - Win
  - Loss
- - Bust
- - Blackjack
  - Push
- - Sticking
- - Hitting
- - Betting
  - Doubling down
  - Splitting
  - Insurance

@@ -10,11 +10,7 @@ import (
 	"github.com/hughgrigg/blackjack/util"
 )
 
-// todo
-type tui interface {
-	Handle(path string, handler func(termui.Event))
-}
-
+// The master display object containing all the sub-views.
 type Display struct {
 	board          *game.Board
 	dealerView     *View
@@ -26,15 +22,16 @@ type Display struct {
 	views          []*View
 }
 
+// Initialise the displayer with its views and keyboard handlers.
 func (d *Display) Init() {
 	d.initViews()
 
-	// q is always quit
+	// q is always quit.
 	termui.Handle("/sys/kbd/q", func(event termui.Event) {
 		termui.StopLoop()
 	})
 
-	// pass key presses to actions for the game board's current stage
+	// Pass key presses to actions for the game board's current stage.
 	termui.Handle(
 		"/sys/kbd",
 		func(e termui.Event) {
@@ -58,6 +55,7 @@ func (d *Display) Init() {
 	)
 }
 
+// Initialise the view sections of the display.
 func (d *Display) initViews() {
 	d.deckView = d.NewView("Deck", 5)
 	d.dealerView = d.NewView("Dealer's Hand", 5)
@@ -89,6 +87,7 @@ func (d *Display) initViews() {
 	)
 }
 
+// Construct a new view in the display.
 func (d *Display) NewView(label string, height int) *View {
 	view := &View{*termui.NewPar(""), NullRenderer{}}
 	view.BorderLabel = label
@@ -99,6 +98,7 @@ func (d *Display) NewView(label string, height int) *View {
 	return view
 }
 
+// Have the display render itself through termui.
 func (d *Display) Render() {
 	termui.Body.Align()
 	for _, view := range d.views {
@@ -107,7 +107,7 @@ func (d *Display) Render() {
 	termui.Render(termui.Body)
 }
 
-// Allow setting renderer interfaces for each part of the display
+// Allow setting renderer interfaces for each part of the display.
 func (d *Display) AttachBoard(b *game.Board) {
 	d.board = b
 
@@ -123,26 +123,32 @@ func (d *Display) AttachBoard(b *game.Board) {
 // View
 //
 
+// A viewable section of the display.
 type View struct {
 	termui.Par
 	renderer Renderer
 }
 
+// Something that can render itself as a string.
 type Renderer interface {
 	Render() string
 }
 
+// An empty renderer.
 type NullRenderer struct {
 }
 
+// Get an empty string as a rendering.
 func (n NullRenderer) Render() string {
 	return ""
 }
 
+// A renderer for a set of player actions.
 type ActionSetRenderer struct {
 	board *game.Board
 }
 
+// Get a rendering of a set of player actions as a string.
 func (asr ActionSetRenderer) Render() string {
 	keys := []string{}
 	actions := asr.board.Stage.Actions()

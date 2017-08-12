@@ -13,7 +13,7 @@ import (
 	"github.com/leekchan/accounting"
 )
 
-// The main game controller object
+// The main game controller object.
 type Board struct {
 	Deck        *cards.Deck
 	Dealer      *Dealer
@@ -25,13 +25,19 @@ type Board struct {
 	wg          sync.WaitGroup
 }
 
+// An action that can be made on the board, returning boolean success.
 type Action func(b *Board) bool
+
+// An action the player can consider taking, with a description.
 type PlayerAction struct {
 	Execute     Action
 	Description string
 }
+
+// A set of player actions for a game stage.
 type ActionSet map[string]PlayerAction
 
+// Initialise the board and start its action queue.
 func (b *Board) Begin(actionDelay int) {
 	b.Stage = Betting{}
 	b.Log = &Log{}
@@ -43,7 +49,7 @@ func (b *Board) Begin(actionDelay int) {
 
 	b.resetHands()
 
-	// Run board actions with a more human interval so the player can keep up
+	// Run board actions with a more human interval so the player can keep up.
 	b.actionQueue = make(chan Action, 99)
 	go func() {
 		for action := range b.actionQueue {
@@ -54,11 +60,13 @@ func (b *Board) Begin(actionDelay int) {
 	}()
 }
 
+// Queue up an action for the board to carry out.
 func (b *Board) action(a Action) {
 	b.wg.Add(1)
 	b.actionQueue <- a
 }
 
+// Initialise the dealer's and player's hands.
 func (b *Board) resetHands() {
 	if b.Dealer == nil {
 		b.Dealer = &Dealer{}
@@ -70,14 +78,17 @@ func (b *Board) resetHands() {
 	b.Player.Hands = []*cards.Hand{{}}
 }
 
+// The dealer in the blackjack game.
 type Dealer struct {
 	hand *cards.Hand
 }
 
+// Get a rendering of the dealer's hand as a string.
 func (d Dealer) Render() string {
 	return d.hand.Render()
 }
 
+// Deal initial cards for the dealer and the player.
 func (b *Board) Deal() {
 	b.Stage = &Observing{}
 	b.resetHands()
@@ -111,6 +122,7 @@ func (b *Board) Deal() {
 	})
 }
 
+// Hit the player's first hand and advance the game stage if appropriate.
 func (b *Board) HitPlayer() {
 	b.action(func(b *Board) bool {
 		card := b.Deck.Pop().FaceUp()
@@ -152,6 +164,7 @@ type Log struct {
 	limit  int
 }
 
+// Add a new event to the game log.
 func (l *Log) Push(event string) {
 	l.events = append(l.events, event)
 	if l.limit == 0 {
@@ -162,6 +175,7 @@ func (l *Log) Push(event string) {
 	}
 }
 
+// Get a rendering of the game log as a string.
 func (l Log) Render() string {
 	buffer := bytes.Buffer{}
 	if len(l.events) > 0 {
@@ -185,6 +199,7 @@ type BetsBalance struct {
 	Balance *big.Float
 }
 
+// Construct a new bets and balance container.
 func newBetsBalance(bets float64, balance float64) *BetsBalance {
 	if bets < 0 {
 		bets = 5
@@ -198,6 +213,7 @@ func newBetsBalance(bets float64, balance float64) *BetsBalance {
 	return &bb
 }
 
+// Raise the first bet.
 func (bb *BetsBalance) Raise(amount float64) bool {
 	if bb.Balance.Cmp(big.NewFloat(amount)) == 1 {
 		bb.Bets[0] = util.AddBigFloat(
@@ -213,6 +229,7 @@ func (bb *BetsBalance) Raise(amount float64) bool {
 	return false
 }
 
+// Lower the first bet.
 func (bb *BetsBalance) Lower(amount float64) bool {
 	if bb.Bets[0].Cmp(big.NewFloat(amount)) == 1 {
 		bb.Bets[0] = util.AddBigFloat(
@@ -230,6 +247,7 @@ func (bb *BetsBalance) Lower(amount float64) bool {
 
 var ac = accounting.Accounting{Symbol: "£", Precision: 2}
 
+// Get a rendering of the bets and balance as a string.
 func (bb BetsBalance) Render() string {
 	buffer := bytes.Buffer{}
 	last := len(bb.Bets) - 1
