@@ -10,6 +10,11 @@ import (
 	"github.com/hughgrigg/blackjack/util"
 )
 
+// todo
+type tui interface {
+	Handle(path string, handler func(termui.Event))
+}
+
 type Display struct {
 	board          *game.Board
 	dealerView     *View
@@ -102,6 +107,22 @@ func (d *Display) Render() {
 	termui.Render(termui.Body)
 }
 
+// Allow setting renderer interfaces for each part of the display
+func (d *Display) AttachBoard(b *game.Board) {
+	d.board = b
+
+	d.deckView.renderer = b.Deck
+	d.dealerView.renderer = b.Dealer
+	d.playerView.renderer = b.Player
+	d.betBalanceView.renderer = b.BetsBalance
+	d.eventLogView.renderer = b.Log
+	d.actionsView.renderer = ActionSetRenderer{b}
+}
+
+//
+// View
+//
+
 type View struct {
 	termui.Par
 	renderer Renderer
@@ -116,18 +137,6 @@ type NullRenderer struct {
 
 func (n NullRenderer) Render() string {
 	return ""
-}
-
-// Allow setting renderer interfaces for each part of the display
-func (d *Display) AttachBoard(b *game.Board) {
-	d.board = b
-
-	d.deckView.renderer = b.Deck
-	d.dealerView.renderer = b.Dealer
-	d.playerView.renderer = b.Player
-	d.betBalanceView.renderer = b.BetsBalance
-	d.eventLogView.renderer = b.Log
-	d.actionsView.renderer = ActionSetRenderer{b}
 }
 
 type ActionSetRenderer struct {
