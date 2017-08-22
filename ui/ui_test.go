@@ -74,6 +74,9 @@ func TestActionSetRenderer_Render(t *testing.T) {
 type fooStage struct {
 }
 
+func (fs fooStage) Begin(b *game.Board) {
+}
+
 func (fs fooStage) Actions() game.ActionSet {
 	return game.ActionSet{
 		"f": {

@@ -85,6 +85,16 @@ func (b *Board) resetHands() {
 	b.Player.Hands = []*cards.Hand{{}}
 }
 
+// ChangeStage progresses the game on to a new stage.
+func (b *Board) ChangeStage(stage Stage) {
+	b.Stage = &Observing{}
+	b.action(func(b *Board) bool {
+		b.Stage = stage
+		return true
+	}).Wait()
+	b.Stage.Begin(b)
+}
+
 // Dealer is the dealer in the blackjack game.
 type Dealer struct {
 	hand *cards.Hand
@@ -153,10 +163,7 @@ func (b *Board) Deal() {
 	b.HitPlayer()
 
 	// Begin player stage
-	b.action(func(b *Board) bool {
-		b.Stage = &PlayerStage{}
-		return true
-	})
+	b.ChangeStage(&PlayerStage{})
 }
 
 // HitDealer hits the dealer's hand and checks if that ends their turn.
@@ -181,14 +188,14 @@ func (b *Board) CheckDealerTurn() *Board {
 			"Dealer busts at %d",
 			util.MinInt(b.Dealer.hand.Scores()),
 		))
-		b.Stage = &Assessment{} // todo
+		b.ChangeStage(&Assessment{})
 		return b
 	}
 
 	// Does the dealer have blackjack?
 	if b.Dealer.hand.HasBlackJack() {
 		b.Log.Push("Dealer has blackjack")
-		b.Stage = &Assessment{} // todo
+		b.ChangeStage(&Assessment{})
 		return b
 	}
 
@@ -198,7 +205,7 @@ func (b *Board) CheckDealerTurn() *Board {
 			"Dealer has %d",
 			util.MaxInt(b.Dealer.hand.Scores()),
 		))
-		b.Stage = &Assessment{} // todo
+		b.ChangeStage(&Assessment{})
 		return b
 	}
 
@@ -222,25 +229,13 @@ func (b *Board) HitPlayer() *Board {
 			"Player busts at %d",
 			util.MinInt(b.Player.Hands[0].Scores()),
 		))
-		b.Stage = &Observing{}
-		b.action(func(b *Board) bool {
-			b.Stage = &DealerStage{}
-			return true
-		}).Wait()
-
-		b.Dealer.Play(b)
+		b.ChangeStage(&DealerStage{})
 	}
 
 	// Has player got blackjack?
 	if b.Player.Hands[0].HasBlackJack() {
 		b.Log.Push("Player has blackjack!")
-		b.Stage = &Observing{}
-		b.action(func(b *Board) bool {
-			b.Stage = &DealerStage{}
-			return true
-		}).Wait()
-
-		b.Dealer.Play(b)
+		b.ChangeStage(&DealerStage{})
 	}
 
 	return b
@@ -284,7 +279,7 @@ func (l Log) Render() string {
 //
 type Bank struct {
 	// Indexed bets corresponding to each player hand
-	Bets    []*big.Float
+	Bets    []*Bet
 	Balance *big.Float
 }
 
@@ -297,7 +292,7 @@ func newBank(initialBet float64, balance float64) *Bank {
 		balance = 95
 	}
 	bank := Bank{}
-	bank.Bets = append([]*big.Float{}, big.NewFloat(initialBet))
+	bank.Bets = append([]*Bet{}, &Bet{big.NewFloat(initialBet), nil}) // todo
 	bank.Balance = big.NewFloat(balance)
 	return &bank
 }
@@ -305,8 +300,8 @@ func newBank(initialBet float64, balance float64) *Bank {
 // Raise the first bet.
 func (bank *Bank) Raise(amount float64) bool {
 	if bank.Balance.Cmp(big.NewFloat(amount)) == 1 {
-		bank.Bets[0] = util.AddBigFloat(
-			bank.Bets[0],
+		bank.Bets[0].amount = util.AddBigFloat(
+			bank.Bets[0].amount,
 			amount,
 		)
 		bank.Balance = util.AddBigFloat(
@@ -320,9 +315,9 @@ func (bank *Bank) Raise(amount float64) bool {
 
 // Lower the first bet.
 func (bank *Bank) Lower(amount float64) bool {
-	if bank.Bets[0].Cmp(big.NewFloat(amount)) == 1 {
-		bank.Bets[0] = util.AddBigFloat(
-			bank.Bets[0],
+	if bank.Bets[0].amount.Cmp(big.NewFloat(amount)) == 1 {
+		bank.Bets[0].amount = util.AddBigFloat(
+			bank.Bets[0].amount,
 			-amount,
 		)
 		bank.Balance = util.AddBigFloat(
@@ -342,7 +337,7 @@ func (bank Bank) Render() string {
 	last := len(bank.Bets) - 1
 	for i, bet := range bank.Bets {
 		buffer.WriteString(fmt.Sprintf(
-			"[%s](fg-bold,fg-cyan)", ac.FormatMoneyBigFloat(bet),
+			"[%s](fg-bold,fg-cyan)", ac.FormatMoneyBigFloat(bet.amount),
 		))
 		if i != last {
 			buffer.WriteString(" , ")
@@ -350,4 +345,12 @@ func (bank Bank) Render() string {
 	}
 	buffer.WriteString(fmt.Sprintf(" / %s", ac.FormatMoneyBigFloat(bank.Balance)))
 	return buffer.String()
+}
+
+//
+// Bets
+//
+type Bet struct {
+	amount *big.Float
+	hand   *cards.Hand
 }

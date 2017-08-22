@@ -5,11 +5,16 @@ package game
 //
 
 type Stage interface {
+	Begin(board *Board)
 	Actions() ActionSet
 }
 
 // Betting is when the player can place their bet and then ask to deal.
 type Betting struct {
+}
+
+// Begin does nothing during the betting stage.
+func (b Betting) Begin(board *Board) {
 }
 
 // Actions during betting are dealing, raising and lowering.
@@ -42,6 +47,10 @@ func (b Betting) Actions() ActionSet {
 type Observing struct {
 }
 
+// Begin does nothing during an observation stage.
+func (o Observing) Begin(board *Board) {
+}
+
 // Actions are empty during observing.
 func (o Observing) Actions() ActionSet {
 	return map[string]PlayerAction{}
@@ -49,6 +58,10 @@ func (o Observing) Actions() ActionSet {
 
 // PlayerStage is when the player can hit or stand.
 type PlayerStage struct {
+}
+
+// Begin does nothing during the player stage.
+func (ps PlayerStage) Begin(board *Board) {
 }
 
 // Actions are hit or stand during the player stage.
@@ -83,7 +96,17 @@ type DealerStage struct {
 	Observing
 }
 
+// Begin triggers the dealer to play in the dealer stage.
+func (ds DealerStage) Begin(board *Board) {
+	board.Dealer.Play(board)
+}
+
 // Assessment is when bets are won or lost.
 type Assessment struct {
 	Observing
+}
+
+// Begin triggers the end game reckoning to take place during assessment.
+func (a Assessment) Begin(board *Board) {
+
 }

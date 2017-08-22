@@ -131,6 +131,16 @@ func TestBoard_HitDealer_Soft17(t *testing.T) {
 	assert.Equal(t, &DealerStage{}, board.Stage)
 }
 
+// Should be able to change the game stage.
+func TestBoard_ChangeStage(t *testing.T) {
+	board := Board{}
+	board.Begin(0)
+
+	board.ChangeStage(&PlayerStage{})
+
+	assert.Equal(t, &PlayerStage{}, board.Stage)
+}
+
 //
 // Dealer
 //
@@ -172,7 +182,7 @@ func TestLog_Limit(t *testing.T) {
 func TestBank_Render(t *testing.T) {
 	bank := newBank(5, 95)
 	assert.Equal(t, "[£5.00](fg-bold,fg-cyan) / £95.00", bank.Render())
-	bank.Bets = append(bank.Bets, big.NewFloat(2))
+	bank.Bets = append(bank.Bets, &Bet{big.NewFloat(2), nil})
 	assert.Equal(
 		t,
 		"[£5.00](fg-bold,fg-cyan) , [£2.00](fg-bold,fg-cyan) / £95.00",
@@ -185,7 +195,7 @@ func TestBank_Raise(t *testing.T) {
 	bank := newBank(10, 15)
 	raised := bank.Raise(5)
 	assert.True(t, raised, "Bet should be raised")
-	assert.Equal(t, big.NewFloat(15), bank.Bets[0])
+	assert.Equal(t, big.NewFloat(15), bank.Bets[0].amount)
 	assert.Equal(t, big.NewFloat(10), bank.Balance)
 }
 
@@ -194,7 +204,7 @@ func TestBank_Lower(t *testing.T) {
 	bank := newBank(15, 0)
 	lowered := bank.Lower(5)
 	assert.True(t, lowered, "Bet should be lowered")
-	assert.Equal(t, big.NewFloat(10), bank.Bets[0])
+	assert.Equal(t, big.NewFloat(10), bank.Bets[0].amount)
 	assert.Equal(t, big.NewFloat(5), bank.Balance)
 }
 
@@ -203,7 +213,7 @@ func TestBank_RaiseMax(t *testing.T) {
 	bank := newBank(0, 5)
 	raised := bank.Raise(10)
 	assert.False(t, raised, "Bet should not be raised")
-	assert.Equal(t, big.NewFloat(0), bank.Bets[0])
+	assert.Equal(t, big.NewFloat(0), bank.Bets[0].amount)
 	assert.Equal(t, big.NewFloat(5), bank.Balance)
 }
 
@@ -212,7 +222,7 @@ func TestBank_LowerMin(t *testing.T) {
 	bank := newBank(5, 5)
 	raised := bank.Lower(10)
 	assert.False(t, raised, "Bet should not be lowered")
-	assert.Equal(t, big.NewFloat(5), bank.Bets[0])
+	assert.Equal(t, big.NewFloat(5), bank.Bets[0].amount)
 	assert.Equal(t, big.NewFloat(5), bank.Balance)
 }
 
@@ -249,7 +259,7 @@ func TestBetting_Actions_Raise(t *testing.T) {
 	board := &Board{}
 	board.Begin(0)
 
-	originalBet := board.Bank.Bets[0]
+	originalBetAmount := *board.Bank.Bets[0].amount
 
 	raise := betting.Actions()["r"]
 	raise.Execute(board)
@@ -258,7 +268,7 @@ func TestBetting_Actions_Raise(t *testing.T) {
 	// Should raise player's bet
 	assert.Equal(
 		t,
-		board.Bank.Bets[0].Cmp(originalBet),
+		board.Bank.Bets[0].amount.Cmp(&originalBetAmount),
 		1,
 		"Bet should have been raised",
 	)
@@ -273,7 +283,8 @@ func TestBetting_Actions_Lower(t *testing.T) {
 
 	raise := betting.Actions()["r"]
 	raise.Execute(board)
-	originalBet := board.Bank.Bets[0]
+
+	originalBetAmount := *board.Bank.Bets[0].amount
 
 	lower := betting.Actions()["l"]
 	lower.Execute(board)
@@ -282,7 +293,7 @@ func TestBetting_Actions_Lower(t *testing.T) {
 	// Should lower player's bet
 	assert.Equal(
 		t,
-		board.Bank.Bets[0].Cmp(originalBet),
+		board.Bank.Bets[0].amount.Cmp(&originalBetAmount),
 		-1,
 		"Bet should have been lowered",
 	)
