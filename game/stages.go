@@ -24,13 +24,13 @@ func (b Betting) Actions() ActionSet {
 		},
 		"r": {
 			func(b *Board) bool {
-				return b.BetsBalance.Raise(5)
+				return b.Bank.Raise(5)
 			},
 			"Raise",
 		},
 		"l": {
 			func(b *Board) bool {
-				return b.BetsBalance.Lower(5)
+				return b.Bank.Lower(5)
 			},
 			"Lower",
 		},

@@ -18,7 +18,7 @@ type Board struct {
 	Deck        *cards.Deck
 	Dealer      *Dealer
 	Player      *cards.HandSet
-	BetsBalance *BetsBalance
+	Bank        *Bank
 	Log         *Log
 	Stage       Stage
 	actionQueue chan Action
@@ -41,7 +41,7 @@ type ActionSet map[string]PlayerAction
 func (b *Board) Begin(actionDelay int) {
 	b.Stage = Betting{}
 	b.Log = &Log{}
-	b.BetsBalance = newBetsBalance(-1, -1)
+	b.Bank = newBank(-1, -1)
 
 	b.Deck = &cards.Deck{}
 	b.Deck.Init()
@@ -280,38 +280,37 @@ func (l Log) Render() string {
 }
 
 //
-// Bets and balance
-// todo: rename this to "bank"?
+// Bank
 //
-type BetsBalance struct {
+type Bank struct {
 	// Indexed bets corresponding to each player hand
 	Bets    []*big.Float
 	Balance *big.Float
 }
 
-// Construct a new bets and balance container.
-func newBetsBalance(bets float64, balance float64) *BetsBalance {
-	if bets < 0 {
-		bets = 5
+// Construct a new bank instance.
+func newBank(initialBet float64, balance float64) *Bank {
+	if initialBet < 0 {
+		initialBet = 5
 	}
 	if balance < 0 {
 		balance = 95
 	}
-	bb := BetsBalance{}
-	bb.Bets = append([]*big.Float{}, big.NewFloat(bets))
-	bb.Balance = big.NewFloat(balance)
-	return &bb
+	bank := Bank{}
+	bank.Bets = append([]*big.Float{}, big.NewFloat(initialBet))
+	bank.Balance = big.NewFloat(balance)
+	return &bank
 }
 
 // Raise the first bet.
-func (bb *BetsBalance) Raise(amount float64) bool {
-	if bb.Balance.Cmp(big.NewFloat(amount)) == 1 {
-		bb.Bets[0] = util.AddBigFloat(
-			bb.Bets[0],
+func (bank *Bank) Raise(amount float64) bool {
+	if bank.Balance.Cmp(big.NewFloat(amount)) == 1 {
+		bank.Bets[0] = util.AddBigFloat(
+			bank.Bets[0],
 			amount,
 		)
-		bb.Balance = util.AddBigFloat(
-			bb.Balance,
+		bank.Balance = util.AddBigFloat(
+			bank.Balance,
 			-amount,
 		)
 		return true
@@ -320,14 +319,14 @@ func (bb *BetsBalance) Raise(amount float64) bool {
 }
 
 // Lower the first bet.
-func (bb *BetsBalance) Lower(amount float64) bool {
-	if bb.Bets[0].Cmp(big.NewFloat(amount)) == 1 {
-		bb.Bets[0] = util.AddBigFloat(
-			bb.Bets[0],
+func (bank *Bank) Lower(amount float64) bool {
+	if bank.Bets[0].Cmp(big.NewFloat(amount)) == 1 {
+		bank.Bets[0] = util.AddBigFloat(
+			bank.Bets[0],
 			-amount,
 		)
-		bb.Balance = util.AddBigFloat(
-			bb.Balance,
+		bank.Balance = util.AddBigFloat(
+			bank.Balance,
 			amount,
 		)
 		return true
@@ -337,11 +336,11 @@ func (bb *BetsBalance) Lower(amount float64) bool {
 
 var ac = accounting.Accounting{Symbol: "£", Precision: 2}
 
-// Get a rendering of the bets and balance as a string.
-func (bb BetsBalance) Render() string {
+// Get a rendering of the bank as a string.
+func (bank Bank) Render() string {
 	buffer := bytes.Buffer{}
-	last := len(bb.Bets) - 1
-	for i, bet := range bb.Bets {
+	last := len(bank.Bets) - 1
+	for i, bet := range bank.Bets {
 		buffer.WriteString(fmt.Sprintf(
 			"[%s](fg-bold,fg-cyan)", ac.FormatMoneyBigFloat(bet),
 		))
@@ -349,6 +348,6 @@ func (bb BetsBalance) Render() string {
 			buffer.WriteString(" , ")
 		}
 	}
-	buffer.WriteString(fmt.Sprintf(" / %s", ac.FormatMoneyBigFloat(bb.Balance)))
+	buffer.WriteString(fmt.Sprintf(" / %s", ac.FormatMoneyBigFloat(bank.Balance)))
 	return buffer.String()
 }

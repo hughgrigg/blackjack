@@ -165,55 +165,55 @@ func TestLog_Limit(t *testing.T) {
 }
 
 //
-// Bets and balance
+// Bank
 //
 
-// Should be able to render the player's bets and balance.
-func TestBetsBalance_Render(t *testing.T) {
-	betsBalance := newBetsBalance(5, 95)
-	assert.Equal(t, "[£5.00](fg-bold,fg-cyan) / £95.00", betsBalance.Render())
-	betsBalance.Bets = append(betsBalance.Bets, big.NewFloat(2))
+// Should be able to render the player's bank.
+func TestBank_Render(t *testing.T) {
+	bank := newBank(5, 95)
+	assert.Equal(t, "[£5.00](fg-bold,fg-cyan) / £95.00", bank.Render())
+	bank.Bets = append(bank.Bets, big.NewFloat(2))
 	assert.Equal(
 		t,
 		"[£5.00](fg-bold,fg-cyan) , [£2.00](fg-bold,fg-cyan) / £95.00",
-		betsBalance.Render(),
+		bank.Render(),
 	)
 }
 
 // Should be able to raise the bet.
-func TestBetsBalance_Raise(t *testing.T) {
-	betsBalance := newBetsBalance(10, 15)
-	raised := betsBalance.Raise(5)
+func TestBank_Raise(t *testing.T) {
+	bank := newBank(10, 15)
+	raised := bank.Raise(5)
 	assert.True(t, raised, "Bet should be raised")
-	assert.Equal(t, big.NewFloat(15), betsBalance.Bets[0])
-	assert.Equal(t, big.NewFloat(10), betsBalance.Balance)
+	assert.Equal(t, big.NewFloat(15), bank.Bets[0])
+	assert.Equal(t, big.NewFloat(10), bank.Balance)
 }
 
 // Should be able to lower the bet.
-func TestBetsBalance_Lower(t *testing.T) {
-	betsBalance := newBetsBalance(15, 0)
-	lowered := betsBalance.Lower(5)
+func TestBank_Lower(t *testing.T) {
+	bank := newBank(15, 0)
+	lowered := bank.Lower(5)
 	assert.True(t, lowered, "Bet should be lowered")
-	assert.Equal(t, big.NewFloat(10), betsBalance.Bets[0])
-	assert.Equal(t, big.NewFloat(5), betsBalance.Balance)
+	assert.Equal(t, big.NewFloat(10), bank.Bets[0])
+	assert.Equal(t, big.NewFloat(5), bank.Balance)
 }
 
 // Should not be able to raise the bet beyond the available balance.
-func TestBetsBalance_RaiseMax(t *testing.T) {
-	betsBalance := newBetsBalance(0, 5)
-	raised := betsBalance.Raise(10)
+func TestBank_RaiseMax(t *testing.T) {
+	bank := newBank(0, 5)
+	raised := bank.Raise(10)
 	assert.False(t, raised, "Bet should not be raised")
-	assert.Equal(t, big.NewFloat(0), betsBalance.Bets[0])
-	assert.Equal(t, big.NewFloat(5), betsBalance.Balance)
+	assert.Equal(t, big.NewFloat(0), bank.Bets[0])
+	assert.Equal(t, big.NewFloat(5), bank.Balance)
 }
 
 // Should not be able to lower the bet beyond the minimum.
-func TestBetsBalance_LowerMin(t *testing.T) {
-	betsBalance := newBetsBalance(5, 5)
-	raised := betsBalance.Lower(10)
+func TestBank_LowerMin(t *testing.T) {
+	bank := newBank(5, 5)
+	raised := bank.Lower(10)
 	assert.False(t, raised, "Bet should not be lowered")
-	assert.Equal(t, big.NewFloat(5), betsBalance.Bets[0])
-	assert.Equal(t, big.NewFloat(5), betsBalance.Balance)
+	assert.Equal(t, big.NewFloat(5), bank.Bets[0])
+	assert.Equal(t, big.NewFloat(5), bank.Balance)
 }
 
 //
@@ -249,7 +249,7 @@ func TestBetting_Actions_Raise(t *testing.T) {
 	board := &Board{}
 	board.Begin(0)
 
-	originalBet := board.BetsBalance.Bets[0]
+	originalBet := board.Bank.Bets[0]
 
 	raise := betting.Actions()["r"]
 	raise.Execute(board)
@@ -258,7 +258,7 @@ func TestBetting_Actions_Raise(t *testing.T) {
 	// Should raise player's bet
 	assert.Equal(
 		t,
-		board.BetsBalance.Bets[0].Cmp(originalBet),
+		board.Bank.Bets[0].Cmp(originalBet),
 		1,
 		"Bet should have been raised",
 	)
@@ -273,7 +273,7 @@ func TestBetting_Actions_Lower(t *testing.T) {
 
 	raise := betting.Actions()["r"]
 	raise.Execute(board)
-	originalBet := board.BetsBalance.Bets[0]
+	originalBet := board.Bank.Bets[0]
 
 	lower := betting.Actions()["l"]
 	lower.Execute(board)
@@ -282,7 +282,7 @@ func TestBetting_Actions_Lower(t *testing.T) {
 	// Should lower player's bet
 	assert.Equal(
 		t,
-		board.BetsBalance.Bets[0].Cmp(originalBet),
+		board.Bank.Bets[0].Cmp(originalBet),
 		-1,
 		"Bet should have been lowered",
 	)
