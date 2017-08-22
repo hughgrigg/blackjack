@@ -34,20 +34,20 @@ type PlayerAction struct {
 	Description string
 }
 
-// A set of player actions for a game stage.
+// ActionSet is a set of player actions for a game stage.
 type ActionSet map[string]PlayerAction
 
-// Initialise the board and start its action queue.
-func (b *Board) Begin(actionDelay int) {
+// Begin initialises the board and starts its action queue.
+func (b *Board) Begin(actionDelay int) *Board {
 	b.Stage = Betting{}
 	b.Log = &Log{}
-	b.Bank = newBank(-1, -1)
 
 	b.Deck = &cards.Deck{}
 	b.Deck.Init()
 	b.Deck.Shuffle(cards.UniqueShuffle)
 
 	b.resetHands()
+	b.initBank(-1, -1)
 
 	// Run board actions with a more human interval so the player can keep up.
 	b.wg = &sync.WaitGroup{}
@@ -59,6 +59,8 @@ func (b *Board) Begin(actionDelay int) {
 			b.wg.Done()
 		}
 	}()
+
+	return b
 }
 
 // Queue up an action for the board to carry out.
@@ -110,11 +112,11 @@ func (d *Dealer) Play(b *Board) {
 				return true
 			}).Wait()
 		}
-		b.CheckDealerTurn()
 	}
 	for d.MustHit() {
 		b.HitDealer().Wait()
 	}
+	b.ConcludeDealerTurn().Wait()
 }
 
 // MustHit sees if the dealer has to keep hitting. In blackjack, the dealer
@@ -138,7 +140,6 @@ func (d Dealer) Render() string {
 // Deal initial cards for the dealer and the player.
 func (b *Board) Deal() {
 	b.Stage = &Observing{}
-	b.resetHands()
 
 	// Dealer's first card
 	b.action(func(b *Board) bool {
@@ -176,27 +177,23 @@ func (b *Board) HitDealer() *Board {
 		return true
 	}).Wait()
 
-	return b.CheckDealerTurn()
+	return b
 }
 
-// CheckDealerTurn checks the dealer's hand and advances the game stage once they
+// ConcludeDealerTurn checks the dealer's hand and advances the game stage once they
 // have hard 17 or higher.
-func (b *Board) CheckDealerTurn() *Board {
+func (b *Board) ConcludeDealerTurn() *Board {
 	// Has the dealer bust?
 	if b.Dealer.hand.IsBust() {
 		b.Log.Push(fmt.Sprintf(
 			"Dealer busts at %d",
 			util.MinInt(b.Dealer.hand.Scores()),
 		))
-		b.ChangeStage(&Assessment{})
-		return b
 	}
 
 	// Does the dealer have blackjack?
 	if b.Dealer.hand.HasBlackJack() {
 		b.Log.Push("Dealer has blackjack")
-		b.ChangeStage(&Assessment{})
-		return b
 	}
 
 	// Does the dealer have hard 17 or higher?
@@ -205,10 +202,9 @@ func (b *Board) CheckDealerTurn() *Board {
 			"Dealer has %d",
 			util.MaxInt(b.Dealer.hand.Scores()),
 		))
-		b.ChangeStage(&Assessment{})
-		return b
 	}
 
+	b.ChangeStage(&Assessment{})
 	return b
 }
 
@@ -283,18 +279,18 @@ type Bank struct {
 	Balance *big.Float
 }
 
-// Construct a new bank instance.
-func newBank(initialBet float64, balance float64) *Bank {
+// initBank constructs a new bank instance for the board.
+func (b *Board) initBank(initialBet float64, balance float64) *Bank {
 	if initialBet < 0 {
 		initialBet = 5
 	}
 	if balance < 0 {
 		balance = 95
 	}
-	bank := Bank{}
-	bank.Bets = append([]*Bet{}, &Bet{big.NewFloat(initialBet), nil}) // todo
-	bank.Balance = big.NewFloat(balance)
-	return &bank
+	b.Bank = &Bank{}
+	b.Bank.Bets = append([]*Bet{}, &Bet{big.NewFloat(initialBet), b.Player.Hands[0]})
+	b.Bank.Balance = big.NewFloat(balance)
+	return b.Bank
 }
 
 // Raise the first bet.
@@ -353,4 +349,27 @@ func (bank Bank) Render() string {
 type Bet struct {
 	amount *big.Float
 	hand   *cards.Hand
+}
+
+// Conclude finishes the bet and pays the player's winnings (if any).
+func (b *Bet) Conclude(board *Board) {
+	// Pay the winnings for this bet, if any.
+	amount := *b.amount
+	winnings := amount.Mul(
+		b.amount,
+		b.hand.WinFactor(board.Dealer.hand),
+	)
+	board.Bank.Balance.Add(board.Bank.Balance, winnings)
+	switch winnings.Cmp(big.NewFloat(0)) {
+	case 1:
+		board.Log.Push(
+			fmt.Sprintf("Player takes %s", ac.FormatMoneyBigFloat(winnings)),
+		)
+	case 0:
+		board.Log.Push(
+			fmt.Sprintf("Player loses %s", ac.FormatMoneyBigFloat(b.amount)),
+		)
+	}
+	// Reset the bet balance.
+	b.amount = big.NewFloat(0)
 }
