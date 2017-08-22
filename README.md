@@ -37,7 +37,6 @@ for p in cards game ui util; do go test -coverprofile cover.out ./${p}; done
 ## Todo
 
  - Break up game.go
- - Refactor "bets and balance" into "bank"
  - Refactor the player's indexed hands into bets being linked to hands
  - Win
  - Loss

@@ -3,6 +3,8 @@ package cards
 import (
 	"testing"
 
+	"math/big"
+
 	"github.com/stretchr/testify/assert"
 )
 
@@ -344,4 +346,113 @@ func TestHand_Scores(t *testing.T) {
 		NewCard(Six, Clubs),
 	}}
 	assert.Equal(t, []int{23}, hand.Scores())
+}
+
+// Neither hand wins if both are bust.
+func TestHand_Compare_BothBust(t *testing.T) {
+	ours := &Hand{}
+	theirs := &Hand{}
+
+	ours.Hit(NewCard(Jack, Spades))
+	ours.Hit(NewCard(Queen, Spades))
+	ours.Hit(NewCard(King, Spades))
+
+	theirs.Hit(NewCard(Jack, Diamonds))
+	theirs.Hit(NewCard(Queen, Diamonds))
+	theirs.Hit(NewCard(King, Diamonds))
+
+	assert.Equal(t, big.NewFloat(1), ours.WinFactor(theirs))
+	assert.Equal(t, big.NewFloat(1), theirs.WinFactor(ours))
+}
+
+// The other hand wins if we have bust and they haven't.
+func TestHand_Compare_WeBust(t *testing.T) {
+	ours := &Hand{}
+	theirs := &Hand{}
+
+	ours.Hit(NewCard(Jack, Spades))
+	ours.Hit(NewCard(Queen, Spades))
+	ours.Hit(NewCard(King, Spades))
+
+	theirs.Hit(NewCard(Two, Diamonds))
+	theirs.Hit(NewCard(Three, Diamonds))
+
+	assert.Equal(t, big.NewFloat(0), ours.WinFactor(theirs))
+	assert.Equal(t, big.NewFloat(2), theirs.WinFactor(ours))
+}
+
+// We win if the other hand has bust and we haven't.
+func TestHand_Compare_TheyBust(t *testing.T) {
+	ours := &Hand{}
+	theirs := &Hand{}
+
+	ours.Hit(NewCard(Two, Spades))
+	ours.Hit(NewCard(Three, Spades))
+
+	theirs.Hit(NewCard(Jack, Diamonds))
+	theirs.Hit(NewCard(Queen, Diamonds))
+	theirs.Hit(NewCard(King, Diamonds))
+
+	assert.Equal(t, big.NewFloat(2), ours.WinFactor(theirs))
+	assert.Equal(t, big.NewFloat(0), theirs.WinFactor(ours))
+}
+
+// We win if our hand is higher.
+func TestHand_Compare_Higher(t *testing.T) {
+	ours := &Hand{}
+	theirs := &Hand{}
+
+	ours.Hit(NewCard(Eight, Spades))
+	ours.Hit(NewCard(Ten, Spades))
+
+	theirs.Hit(NewCard(Seven, Diamonds))
+	theirs.Hit(NewCard(Ten, Diamonds))
+
+	assert.Equal(t, big.NewFloat(2), ours.WinFactor(theirs))
+	assert.Equal(t, big.NewFloat(0), theirs.WinFactor(ours))
+}
+
+// The other hand wins if our hand is lower.
+func TestHand_Compare_Lower(t *testing.T) {
+	ours := &Hand{}
+	theirs := &Hand{}
+
+	ours.Hit(NewCard(Eight, Spades))
+	ours.Hit(NewCard(Ten, Spades))
+
+	theirs.Hit(NewCard(Nine, Diamonds))
+	theirs.Hit(NewCard(Ten, Diamonds))
+
+	assert.Equal(t, big.NewFloat(0), ours.WinFactor(theirs))
+	assert.Equal(t, big.NewFloat(2), theirs.WinFactor(ours))
+}
+
+// It's a push if both hands have the same value.
+func TestHand_Compare_Same(t *testing.T) {
+	ours := &Hand{}
+	theirs := &Hand{}
+
+	ours.Hit(NewCard(Eight, Spades))
+	ours.Hit(NewCard(Ten, Spades))
+
+	theirs.Hit(NewCard(Eight, Diamonds))
+	theirs.Hit(NewCard(Ten, Diamonds))
+
+	assert.Equal(t, big.NewFloat(1), ours.WinFactor(theirs))
+	assert.Equal(t, big.NewFloat(1), theirs.WinFactor(ours))
+}
+
+// We get extra points for winning with blackjack.
+func TestHand_Compare_Blackjack(t *testing.T) {
+	ours := &Hand{}
+	theirs := &Hand{}
+
+	ours.Hit(NewCard(Ace, Spades))
+	ours.Hit(NewCard(Ten, Spades))
+
+	theirs.Hit(NewCard(Eight, Diamonds))
+	theirs.Hit(NewCard(Ten, Diamonds))
+
+	assert.Equal(t, big.NewFloat(2.5), ours.WinFactor(theirs))
+	assert.Equal(t, big.NewFloat(0), theirs.WinFactor(ours))
 }

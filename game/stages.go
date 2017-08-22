@@ -1,5 +1,11 @@
 package game
 
+import (
+	"math/big"
+
+	"github.com/hughgrigg/blackjack/cards"
+)
+
 //
 // Game stages and actions
 //
@@ -13,8 +19,15 @@ type Stage interface {
 type Betting struct {
 }
 
-// Begin does nothing during the betting stage.
+// Begin resets the hands and bets.
 func (b Betting) Begin(board *Board) {
+	board.resetHands()
+	board.Deck.Init()
+	board.Deck.Shuffle(cards.UniqueShuffle)
+	board.Bank.Bets = []*Bet{
+		{amount: big.NewFloat(0), hand: board.Player.Hands[0]},
+	}
+	board.Bank.Raise(5) // Try to bet if possible.
 }
 
 // Actions during betting are dealing, raising and lowering.
@@ -22,6 +35,9 @@ func (b Betting) Actions() ActionSet {
 	return map[string]PlayerAction{
 		"d": {
 			func(b *Board) bool {
+				if b.Bank.Bets[0].amount.Cmp(big.NewFloat(0)) <= 0 {
+					return false
+				}
 				b.Deal()
 				return true
 			},
@@ -108,5 +124,31 @@ type Assessment struct {
 
 // Begin triggers the end game reckoning to take place during assessment.
 func (a Assessment) Begin(board *Board) {
+	for _, bet := range board.Bank.Bets {
+		board.action(func(b *Board) bool {
+			bet.Conclude(b)
+			return true
+		}).Wait()
+	}
+	board.ChangeStage(&Conclusion{})
+}
 
+type Conclusion struct {
+}
+
+// Begin does nothing at the conclusion of a round.
+func (c Conclusion) Begin(board *Board) {
+}
+
+// Actions at the end of a round only allow a new round to be started.
+func (c Conclusion) Actions() ActionSet {
+	return map[string]PlayerAction{
+		"n": {
+			func(b *Board) bool {
+				b.ChangeStage(&Betting{})
+				return true
+			},
+			"New round",
+		},
+	}
 }

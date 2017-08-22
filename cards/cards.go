@@ -7,6 +7,8 @@ import (
 	"sort"
 	"time"
 
+	"math/big"
+
 	"github.com/hughgrigg/blackjack/util"
 )
 
@@ -131,6 +133,7 @@ type Deck struct {
 
 // Initialise the deck with all 52 cards in order.
 func (d *Deck) Init() {
+	d.Cards = []*Card{}
 	for _, s := range Suits {
 		for _, r := range Ranks {
 			d.Cards = append(d.Cards, &Card{r, s, true})
@@ -242,7 +245,43 @@ func (h *Hand) HasHard17() bool {
 	return false
 }
 
-// Get a rendering of the hand as a string.
+// WinFactor assesses whether one hand beats another, giving the multiplier for
+// calculating the winnings. E.g. 2.5 for blackjack, 2 for winning, 1 for push
+// and 0 for losing.
+func (h *Hand) WinFactor(other *Hand) *big.Float {
+	ourScore := util.MaxInt(h.Scores())
+	theirScore := util.MaxInt(other.Scores())
+
+	// Push if we got the same score.
+	if ourScore == theirScore {
+		return big.NewFloat(1)
+	}
+
+	// Lose if we bust.
+	if h.IsBust() {
+		return big.NewFloat(0)
+	}
+
+	// Extra points if we have blackjack.
+	if h.HasBlackJack() {
+		return big.NewFloat(2.5)
+	}
+
+	// Win if they bust.
+	if other.IsBust() {
+		return big.NewFloat(2)
+	}
+
+	// Win if we beat their score.
+	if ourScore > theirScore {
+		return big.NewFloat(2)
+	}
+
+	// Otherwise we've lost.
+	return big.NewFloat(0)
+}
+
+// Render the hand as a string.
 func (h Hand) Render() string {
 	buffer := bytes.Buffer{}
 	last := len(h.Cards) - 1
@@ -259,7 +298,6 @@ func (h Hand) Render() string {
 }
 
 // Player can have many hands
-// TODO: consider refactoring this into bets being associated with hands
 type HandSet struct {
 	Hands []*Hand
 }
