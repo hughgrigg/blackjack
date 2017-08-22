@@ -12,14 +12,14 @@ import (
 
 // The master display object containing all the sub-views.
 type Display struct {
-	board          *game.Board
-	dealerView     *View
-	deckView       *View
-	playerView     *View
-	betBalanceView *View
-	eventLogView   *View
-	actionsView    *View
-	views          []*View
+	board        *game.Board
+	dealerView   *View
+	deckView     *View
+	playerView   *View
+	bankView     *View
+	eventLogView *View
+	actionsView  *View
+	views        []*View
 }
 
 // Initialise the display with its views and keyboard handlers.
@@ -60,13 +60,13 @@ func (d *Display) initViews() {
 	d.dealerView.BorderLabelFg = termui.ColorRed
 	d.playerView = d.NewView("Player's Hand", 5)
 	d.playerView.BorderLabelFg = termui.ColorGreen
-	d.betBalanceView = d.NewView("Bets / Balance", 5)
+	d.bankView = d.NewView("Bets / Balance", 5)
 	d.actionsView = d.NewView("Actions", 5)
 	d.eventLogView = d.NewView("Game Log", util.SumInts([]int{
 		d.deckView.Height,
 		d.dealerView.Height,
 		d.playerView.Height,
-		d.betBalanceView.Height,
+		d.bankView.Height,
 		d.actionsView.Height,
 	}))
 	termui.Body.AddRows(
@@ -77,7 +77,7 @@ func (d *Display) initViews() {
 				d.deckView,
 				d.dealerView,
 				d.playerView,
-				d.betBalanceView,
+				d.bankView,
 				d.actionsView,
 			),
 			termui.NewCol(5, 0, d.eventLogView),
@@ -112,7 +112,7 @@ func (d *Display) AttachBoard(b *game.Board) {
 	d.deckView.renderer = b.Deck
 	d.dealerView.renderer = b.Dealer
 	d.playerView.renderer = b.Player
-	d.betBalanceView.renderer = b.BetsBalance
+	d.bankView.renderer = b.Bank
 	d.eventLogView.renderer = b.Log
 	d.actionsView.renderer = ActionSetRenderer{b}
 }
