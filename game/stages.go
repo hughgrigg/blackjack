@@ -21,6 +21,7 @@ type Betting struct {
 
 // Begin resets the hands and bets.
 func (b Betting) Begin(board *Board) {
+	board.Log.Push("Round started")
 	board.resetHands()
 	board.Deck.Init()
 	board.Deck.Shuffle(cards.UniqueShuffle)

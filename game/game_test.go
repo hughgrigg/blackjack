@@ -6,6 +6,8 @@ import (
 
 	"math/big"
 
+	"time"
+
 	"github.com/hughgrigg/blackjack/cards"
 	"github.com/stretchr/testify/assert"
 )
@@ -16,32 +18,32 @@ import (
 
 // Board actions should happen on at intervals so that human players can keep up
 // with what's happening.
-//func TestBoard_ActionDelay(t *testing.T) {
-//	board := Board{}
-//	board.Begin(50)
-//
-//	start := time.Now()
-//	board.action(func(b *Board) bool {
-//		return true
-//	}).Wait()
-//
-//	assert.True(
-//		t,
-//		time.Since(start).Nanoseconds() > 50000000, // = 50ms
-//		"Board action should have been delayed by 50ms",
-//	)
-//}
+func TestBoard_ActionDelay(t *testing.T) {
+	board := Board{}
+	board.Begin(50)
 
-//// The player should be able to hit and have the game proceed from there.
-//func TestBoard_HitPlayer(t *testing.T) {
-//	board := Board{}
-//	board.Begin(0).Wait()
-//
-//	board.HitPlayer().Wait()
-//
-//	// Should have added a card to the player's hand
-//	assert.Equal(t, 1, len(board.Player.Hands[0].Cards))
-//}
+	start := time.Now()
+	board.action(func(b *Board) bool {
+		return true
+	}).Wait()
+
+	assert.True(
+		t,
+		time.Since(start).Nanoseconds() > 50000000, // = 50ms
+		"Board action should have been delayed by 50ms",
+	)
+}
+
+// The player should be able to hit and have the game proceed from there.
+func TestBoard_HitPlayer(t *testing.T) {
+	board := Board{}
+	board.Begin(0).Wait()
+
+	board.HitPlayer().Wait()
+
+	// Should have added a card to the player's hand
+	assert.Equal(t, 1, len(board.Player.Hands[0].Cards))
+}
 
 // The player stage should end if the player gets blackjack.
 func TestBoard_HitPlayer_BlackJack(t *testing.T) {
@@ -354,4 +356,22 @@ func TestPlayerStage_Actions_Stand(t *testing.T) {
 
 	// Should advance to dealer stage.
 	assert.Equal(t, &DealerStage{}, board.Stage)
+}
+
+// If the player immediately gets blackjack in their initial hand, then the
+// player stage should be skipped and we should go through to the conclusion.
+func TestPlayerStage_SkippedOnBlackjack(t *testing.T) {
+	board := &Board{}
+	board.Begin(0)
+
+	// Force blackjack for player.
+	board.Deck.Cards[51] = cards.NewCard(cards.Ten, cards.Clubs)     // dealer 1
+	board.Deck.Cards[50] = cards.NewCard(cards.Ace, cards.Spades)    // player 1
+	board.Deck.Cards[49] = cards.NewCard(cards.Seven, cards.Clubs)   // dealer 2
+	board.Deck.Cards[48] = cards.NewCard(cards.Jack, cards.Diamonds) // player 1
+
+	board.Deal().Wait()
+
+	// Dealer should play through and the round should finish.
+	assert.Equal(t, &Conclusion{}, board.Stage)
 }

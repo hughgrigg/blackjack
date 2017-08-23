@@ -138,7 +138,7 @@ func (d Dealer) Render() string {
 }
 
 // Deal initial cards for the dealer and the player.
-func (b *Board) Deal() {
+func (b *Board) Deal() *Board {
 	b.Stage = &Observing{}
 
 	// Dealer's first card
@@ -147,10 +147,10 @@ func (b *Board) Deal() {
 		b.Log.Push(fmt.Sprintf("Dealer dealt %s", card.Render()))
 		b.Dealer.hand.Hit(card)
 		return true
-	})
+	}).Wait()
 
 	// Player first card
-	b.HitPlayer()
+	b.HitPlayer().Wait()
 
 	// Dealer second card
 	b.action(func(b *Board) bool {
@@ -158,13 +158,18 @@ func (b *Board) Deal() {
 		b.Log.Push(fmt.Sprintf("Dealer dealt %s", card.Render()))
 		b.Dealer.hand.Hit(card)
 		return true
-	})
+	}).Wait().Wait()
 
 	// Player second card
-	b.HitPlayer()
+	b.HitPlayer().Wait()
 
-	// Begin player stage
-	b.ChangeStage(&PlayerStage{})
+	// Begin player stage if we have not gone straight to conclusion due to
+	// player immediately getting blackjack.
+	if !b.Player.Hands[0].HasBlackJack() {
+		b.ChangeStage(&PlayerStage{})
+	}
+
+	return b
 }
 
 // HitDealer hits the dealer's hand and checks if that ends their turn.
@@ -230,7 +235,7 @@ func (b *Board) HitPlayer() *Board {
 
 	// Has player got blackjack?
 	if b.Player.Hands[0].HasBlackJack() {
-		b.Log.Push("Player has blackjack!")
+		b.Log.Push("[Player has blackjack!](fg-cyan)")
 		b.ChangeStage(&DealerStage{})
 	}
 
@@ -355,19 +360,39 @@ type Bet struct {
 func (b *Bet) Conclude(board *Board) {
 	// Pay the winnings for this bet, if any.
 	amount := *b.amount
-	winnings := amount.Mul(
-		b.amount,
-		b.hand.WinFactor(board.Dealer.hand),
-	)
+	winnings := amount.Mul(b.amount, b.hand.WinFactor(board.Dealer.hand))
 	board.Bank.Balance.Add(board.Bank.Balance, winnings)
-	switch winnings.Cmp(big.NewFloat(0)) {
+	winFactor, _ := b.hand.WinFactor(board.Dealer.hand).Float64()
+	switch winFactor {
+	case 2.5:
+		board.Log.Push(
+			fmt.Sprintf(
+				"[Player wins %s with blackjack](fg-cyan)",
+				ac.FormatMoneyBigFloat(winnings)),
+		)
+		break
+	case 2:
+		board.Log.Push(
+			fmt.Sprintf(
+				"[Player wins %s](fg-green)",
+				ac.FormatMoneyBigFloat(winnings),
+			),
+		)
+		break
 	case 1:
 		board.Log.Push(
-			fmt.Sprintf("Player takes %s", ac.FormatMoneyBigFloat(winnings)),
+			fmt.Sprintf(
+				"[Player gets %s back](fg-yellow)",
+				ac.FormatMoneyBigFloat(winnings),
+			),
 		)
+		break
 	case 0:
 		board.Log.Push(
-			fmt.Sprintf("Player loses %s", ac.FormatMoneyBigFloat(b.amount)),
+			fmt.Sprintf(
+				"[Player loses %s](fg-red)",
+				ac.FormatMoneyBigFloat(b.amount),
+			),
 		)
 	}
 	// Reset the bet balance.
