@@ -17,6 +17,7 @@ The game uses a single
 You can run all the tests with:
 
 ```bash
+go get github.com/stretchr/testify/assert
 go test -v ./...
 ```
 
@@ -36,11 +37,6 @@ for p in cards game ui util; do go test -coverprofile cover.out ./${p}; done
 
 ## Todo
 
- - Break up game.go
- - Refactor the player's indexed hands into bets being linked to hands
- - Win
- - Loss
- - Push
  - Doubling down
  - Splitting
  - Insurance
