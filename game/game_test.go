@@ -75,6 +75,41 @@ func TestBoard_HitPlayer_Bust(t *testing.T) {
 	assert.Equal(t, &Conclusion{}, board.Stage)
 }
 
+// Should be able to double down.
+func TestBoard_DoubleDown(t *testing.T) {
+	board := Board{}
+	board.Begin(0).Wait()
+
+	// Force player win
+	board.Deck.Cards[51] = cards.NewCard(cards.Ten, cards.Clubs)     // dealer 1
+	board.Deck.Cards[50] = cards.NewCard(cards.Queen, cards.Spades)  // player 1
+	board.Deck.Cards[49] = cards.NewCard(cards.Seven, cards.Clubs)   // dealer 2
+	board.Deck.Cards[48] = cards.NewCard(cards.Five, cards.Diamonds) // player 2
+	board.Deck.Cards[47] = cards.NewCard(cards.Five, cards.Hearts)   // player 3
+	board.Deal().Wait()
+
+	originalBet := *board.Bank.Bets[0].amount
+	originalBalance := *board.Bank.Balance
+
+	board.DoubleDown().Wait()
+
+	// Dealer should play through and the round should finish.
+	assert.Equal(t, &Conclusion{}, board.Stage)
+
+	// The player should have won with a doubled bet.
+	assert.Equal(
+		t,
+		originalBalance.Add(
+			&originalBalance,
+			originalBet.Mul(
+				&originalBet,
+				big.NewFloat(3), // = 2x bet, plus the bet itself
+			),
+		),
+		board.Bank.Balance,
+	)
+}
+
 // Should be able to hit the dealer's hand.
 func TestBoard_HitDealer(t *testing.T) {
 	board := Board{}
@@ -242,6 +277,23 @@ func TestBank_LowerMin(t *testing.T) {
 // Betting
 //
 
+// Should be able to begin the betting stage.
+func TestBetting_Begin(t *testing.T) {
+	betting := Betting{}
+
+	board := &Board{}
+	board.Begin(0)
+
+	board.ChangeStage(&betting)
+
+	// Round should have started.
+	assert.Equal(
+		t,
+		"Round started",
+		board.Log.events[len(board.Log.events)-1],
+	)
+}
+
 // The player should be able to end the betting stage by dealing.
 func TestBetting_Actions_Deal(t *testing.T) {
 	betting := Betting{}
@@ -311,6 +363,14 @@ func TestBetting_Actions_Lower(t *testing.T) {
 // Observing
 //
 
+// Starting an observing stage should not do anything.
+func TestObserving_Begin(t *testing.T) {
+	board := &Board{}
+	board.Begin(0)
+
+	assert.Empty(t, board.Log.events)
+}
+
 // Player should not be able to do anything during an observing stage.
 func TestObserving_Actions(t *testing.T) {
 	observing := Observing{}
@@ -368,10 +428,34 @@ func TestPlayerStage_SkippedOnBlackjack(t *testing.T) {
 	board.Deck.Cards[51] = cards.NewCard(cards.Ten, cards.Clubs)     // dealer 1
 	board.Deck.Cards[50] = cards.NewCard(cards.Ace, cards.Spades)    // player 1
 	board.Deck.Cards[49] = cards.NewCard(cards.Seven, cards.Clubs)   // dealer 2
-	board.Deck.Cards[48] = cards.NewCard(cards.Jack, cards.Diamonds) // player 1
+	board.Deck.Cards[48] = cards.NewCard(cards.Jack, cards.Diamonds) // player 2
 
 	board.Deal().Wait()
 
 	// Dealer should play through and the round should finish.
 	assert.Equal(t, &Conclusion{}, board.Stage)
+}
+
+//
+// Conclusion
+//
+
+// Should be able to start a new round.
+func TestConclusion_Actions_NewRound(t *testing.T) {
+	board := &Board{}
+	board.Begin(0)
+
+	// Force blackjack for player.
+	board.Deck.Cards[51] = cards.NewCard(cards.Ten, cards.Clubs)     // dealer 1
+	board.Deck.Cards[50] = cards.NewCard(cards.Ace, cards.Spades)    // player 1
+	board.Deck.Cards[49] = cards.NewCard(cards.Seven, cards.Clubs)   // dealer 2
+	board.Deck.Cards[48] = cards.NewCard(cards.Jack, cards.Diamonds) // player 2
+
+	board.Deal().Wait()
+
+	newRound := board.Stage.Actions()["n"]
+	newRound.Execute(board)
+
+	// A new round should have begun.
+	assert.Equal(t, &Betting{}, board.Stage)
 }

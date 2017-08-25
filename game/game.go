@@ -242,6 +242,45 @@ func (b *Board) HitPlayer() *Board {
 	return b
 }
 
+// DoubleDown doubles the player's first bet, hits the player's first hand and
+// immediately advances the game stage.
+func (b *Board) DoubleDown() *Board {
+
+	// Double bet.
+	b.action(func(b *Board) bool {
+		amount := *b.Bank.Bets[0].amount
+		b.Bank.Bets[0].amount.Add(&amount, &amount)
+		b.Bank.Balance.Sub(b.Bank.Balance, &amount)
+		return true
+	}).Wait()
+
+	// Hit player.
+	b.action(func(b *Board) bool {
+		card := b.Deck.Pop().FaceUp()
+		b.Log.Push(fmt.Sprintf("Player dealt %s", card.Render()))
+		b.Player.Hands[len(b.Player.Hands)-1].Hit(card)
+
+		return true
+	}).Wait()
+
+	// Has player bust?
+	if b.Player.Hands[0].IsBust() {
+		b.Log.Push(fmt.Sprintf(
+			"Player busts at %d",
+			util.MinInt(b.Player.Hands[0].Scores()),
+		))
+	}
+
+	// Has player got blackjack?
+	if b.Player.Hands[0].HasBlackJack() {
+		b.Log.Push("[Player has blackjack!](fg-cyan)")
+	}
+
+	b.ChangeStage(&DealerStage{})
+
+	return b
+}
+
 //
 // Game log
 //
