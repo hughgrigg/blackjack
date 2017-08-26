@@ -36,9 +36,6 @@ func (b Betting) Actions() ActionSet {
 	return map[string]PlayerAction{
 		"d": {
 			func(b *Board) bool {
-				if b.Bank.Bets[0].amount.Cmp(big.NewFloat(0)) <= 0 {
-					return false
-				}
 				b.Deal()
 				return true
 			},
@@ -104,6 +101,13 @@ func (ps PlayerStage) Actions() ActionSet {
 				return true
 			},
 			"Stand",
+		},
+		"d": {
+			func(b *Board) bool {
+				b.DoubleDown()
+				return true
+			},
+			"Double Down",
 		},
 	}
 }

@@ -37,7 +37,6 @@ for p in cards game ui util; do go test -coverprofile cover.out ./${p}; done
 
 ## Todo
 
- - Doubling down
  - Splitting
  - Insurance
  - Hints
