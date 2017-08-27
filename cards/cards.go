@@ -207,6 +207,10 @@ func (h *Hand) IsBust() bool {
 // HasBlackJack sees if the hand has blackjack, i.e. 21 is one of its possible
 // scores.
 func (h *Hand) HasBlackJack() bool {
+	// Blackjack is achieved with 2 cards only, otherwise it's just 21.
+	if len(h.Cards) != 2 {
+		return false
+	}
 	for _, score := range h.Scores() {
 		if score == 21 {
 			return true

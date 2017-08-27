@@ -201,6 +201,20 @@ func TestHand_HasBlackJack(t *testing.T) {
 	assert.True(t, hand.HasBlackJack())
 }
 
+// A hand should not have blackjack on 21 with more than 2 cards.
+func TestHand_HasBlackJack_OverTwo(t *testing.T) {
+	hand := Hand{}
+
+	hand.Hit(NewCard(Queen, Spades))
+	assert.False(t, hand.HasBlackJack())
+
+	hand.Hit(NewCard(Eight, Diamonds))
+	assert.False(t, hand.HasBlackJack())
+
+	hand.Hit(NewCard(Three, Diamonds))
+	assert.False(t, hand.HasBlackJack())
+}
+
 // A hand should know if it has a soft score.
 func TestHand_IsSoft(t *testing.T) {
 	hand := Hand{}

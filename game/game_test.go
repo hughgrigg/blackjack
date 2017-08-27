@@ -304,7 +304,7 @@ func TestBetting_Actions_Deal(t *testing.T) {
 	// make sure we don't get blackjack
 	board.Deck.ForceNext(cards.NewCard(cards.Two, cards.Diamonds))
 
-	deal := betting.Actions()["d"]
+	deal := betting.Actions(board)["d"]
 	deal.Execute(board)
 	board.wg.Wait()
 
@@ -321,7 +321,7 @@ func TestBetting_Actions_Raise(t *testing.T) {
 
 	originalBetAmount := *board.Bank.Bets[0].amount
 
-	raise := betting.Actions()["r"]
+	raise := betting.Actions(board)["r"]
 	raise.Execute(board)
 	board.wg.Wait()
 
@@ -341,12 +341,12 @@ func TestBetting_Actions_Lower(t *testing.T) {
 	board := &Board{}
 	board.Begin(0)
 
-	raise := betting.Actions()["r"]
+	raise := betting.Actions(board)["r"]
 	raise.Execute(board)
 
 	originalBetAmount := *board.Bank.Bets[0].amount
 
-	lower := betting.Actions()["l"]
+	lower := betting.Actions(board)["l"]
 	lower.Execute(board)
 	board.wg.Wait()
 
@@ -373,9 +373,10 @@ func TestObserving_Begin(t *testing.T) {
 
 // Player should not be able to do anything during an observing stage.
 func TestObserving_Actions(t *testing.T) {
+	board := &Board{}
 	observing := Observing{}
 
-	assert.Empty(t, observing.Actions())
+	assert.Empty(t, observing.Actions(board))
 }
 
 //
@@ -391,7 +392,7 @@ func TestPlayerStage_Actions_Hit(t *testing.T) {
 
 	originalHandSize := len(board.Player.Hands[0].Cards)
 
-	hit := playerStage.Actions()["h"]
+	hit := playerStage.Actions(board)["h"]
 	hit.Execute(board)
 	board.wg.Wait()
 
@@ -410,7 +411,7 @@ func TestPlayerStage_Actions_Stand(t *testing.T) {
 	board := &Board{}
 	board.Begin(0)
 
-	stand := playerStage.Actions()["s"]
+	stand := playerStage.Actions(board)["s"]
 	stand.Execute(board)
 	board.wg.Wait()
 
@@ -453,7 +454,7 @@ func TestConclusion_Actions_NewRound(t *testing.T) {
 
 	board.Deal().Wait()
 
-	newRound := board.Stage.Actions()["n"]
+	newRound := board.Stage.Actions(board)["n"]
 	newRound.Execute(board)
 
 	// A new round should have begun.

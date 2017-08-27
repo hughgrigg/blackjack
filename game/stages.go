@@ -12,7 +12,7 @@ import (
 
 type Stage interface {
 	Begin(board *Board)
-	Actions() ActionSet
+	Actions(board *Board) ActionSet
 }
 
 // Betting is when the player can place their bet and then ask to deal.
@@ -32,7 +32,7 @@ func (b Betting) Begin(board *Board) {
 }
 
 // Actions during betting are dealing, raising and lowering.
-func (b Betting) Actions() ActionSet {
+func (b Betting) Actions(board *Board) ActionSet {
 	return map[string]PlayerAction{
 		"d": {
 			func(b *Board) bool {
@@ -66,7 +66,7 @@ func (o Observing) Begin(board *Board) {
 }
 
 // Actions are empty during observing.
-func (o Observing) Actions() ActionSet {
+func (o Observing) Actions(board *Board) ActionSet {
 	return map[string]PlayerAction{}
 }
 
@@ -79,7 +79,7 @@ func (ps PlayerStage) Begin(board *Board) {
 }
 
 // Actions are hit or stand during the player stage.
-func (ps PlayerStage) Actions() ActionSet {
+func (ps PlayerStage) Actions(board *Board) ActionSet {
 	return map[string]PlayerAction{
 		"h": {
 			func(b *Board) bool {
@@ -146,7 +146,7 @@ func (c Conclusion) Begin(board *Board) {
 }
 
 // Actions at the end of a round only allow a new round to be started.
-func (c Conclusion) Actions() ActionSet {
+func (c Conclusion) Actions(board *Board) ActionSet {
 	return map[string]PlayerAction{
 		"n": {
 			func(b *Board) bool {

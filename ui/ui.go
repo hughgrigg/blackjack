@@ -39,7 +39,7 @@ func (d *Display) Init() {
 			if !ok {
 				return
 			}
-			actions := d.board.Stage.Actions()
+			actions := d.board.Stage.Actions(d.board)
 			playerAction, ok := actions[evtKbd.KeyStr]
 			if !ok {
 				return
@@ -149,7 +149,7 @@ type ActionSetRenderer struct {
 // Get a rendering of a set of player actions as a string.
 func (asr ActionSetRenderer) Render() string {
 	keys := []string{}
-	actions := asr.board.Stage.Actions()
+	actions := asr.board.Stage.Actions(asr.board)
 	for k := range actions {
 		keys = append(keys, k)
 	}
