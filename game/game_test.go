@@ -454,9 +454,10 @@ func TestBetting_Actions_Lower(t *testing.T) {
 // Starting an observing stage should not do anything.
 func TestObserving_Begin(t *testing.T) {
 	board := &Board{}
-	board.Begin(0)
+	observing := Observing{}
+	observing.Begin(board)
 
-	assert.Empty(t, board.Log.events)
+	assert.Empty(t, observing.Actions(board))
 }
 
 // Player should not be able to do anything during an observing stage.
@@ -504,6 +505,22 @@ func TestPlayerStage_Actions_Stand(t *testing.T) {
 	board.wg.Wait()
 
 	assert.Equal(t, &Observing{}, board.Stage)
+}
+
+// The player should be able to double down during the dealing stage.
+func TestPlayerStage_Actions_DoubleDown(t *testing.T) {
+	playerStage := PlayerStage{}
+
+	board := &Board{}
+	board.Begin(0)
+
+	doubleDown, canDoubleDown := playerStage.Actions(board)["d"]
+	assert.True(t, canDoubleDown)
+
+	doubleDown.Execute(board)
+	board.wg.Wait()
+
+	assert.Equal(t, &Conclusion{}, board.Stage)
 }
 
 // Splitting should not be possible when the active Hand does not consist of two
