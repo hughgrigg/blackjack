@@ -34,10 +34,3 @@ For code coverage:
 go get golang.org/x/tools/cmd/cover
 for p in cards game ui util; do go test -coverprofile cover.out ./${p}; done
 ```
-
-## Todo
-
- - Splitting
- - Insurance
- - Hints
- - Other CLI options, e.g. to ask for a hint for a given situation

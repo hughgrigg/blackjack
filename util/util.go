@@ -2,6 +2,7 @@ package util
 
 import (
 	"math/big"
+	"regexp"
 	"sort"
 )
 
@@ -77,4 +78,11 @@ func AddBigFloat(x *big.Float, y float64) *big.Float {
 	var newVal big.Float
 	newVal.Add(x, big.NewFloat(y))
 	return &newVal
+}
+
+var formatting = regexp.MustCompile("\\[(.*)]\\([a-z]+-[a-z]+\\)")
+
+// StripFormatting removes termui formatting and returns a plain string.
+func StripFormatting(formatted string) string {
+	return formatting.ReplaceAllString(formatted, "$1")
 }

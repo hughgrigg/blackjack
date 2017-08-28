@@ -224,14 +224,14 @@ func TestLog_Limit(t *testing.T) {
 // Should be able to render the player's hands and bets.
 func TestPlayer_Render(t *testing.T) {
 	player := (&Board{}).Begin(0).initPlayer(5, 95)
-	assert.Equal(t, "(0) {[£5.00](fg-bold,fg-cyan)}", player.Render())
+	assert.Equal(t, "(0) {[£5.00](fg-bold,fg-cyan,fg-underline)}", player.Render())
 	player.Bets = append(
 		player.Bets,
 		&Bet{big.NewFloat(2), &cards.Hand{}, false},
 	)
 	assert.Equal(
 		t,
-		"(0) {[£5.00](fg-bold,fg-cyan)} | (0) {[£2.00](fg-bold,fg-cyan)}",
+		"(0) {[£5.00](fg-bold,fg-cyan,fg-underline)} | [(0) {£2.00}](fg-magenta)",
 		player.Render(),
 	)
 }
@@ -276,6 +276,85 @@ func TestPlayer_LowerMin(t *testing.T) {
 func TestPlayer_ActiveBet(t *testing.T) {
 	player := (&Board{}).Begin(0).initPlayer(5, 5)
 	assert.IsType(t, &Bet{}, player.ActiveBet())
+}
+
+// The player should be seen as finished if they have no hands left to play on.
+func TestPlayer_IsFinishedTrue(t *testing.T) {
+	player := (&Board{}).Begin(0).initPlayer(5, 5)
+	player.ActiveBet().stand = true
+	assert.True(t, player.IsFinished())
+}
+
+// The player should be seen as not finished if they have a hand left to play.
+func TestPlayer_IsFinishedFalse(t *testing.T) {
+	player := (&Board{}).Begin(0).initPlayer(5, 5)
+	assert.False(t, player.IsFinished())
+}
+
+//
+// Bet
+//
+
+// A bet should be finished if its hand has been stood on.
+func TestBet_IsFinished_Stand(t *testing.T) {
+	bet := &Bet{big.NewFloat(0), &cards.Hand{}, false}
+	assert.False(t, bet.IsFinished())
+	bet.stand = true
+	assert.True(t, bet.IsFinished())
+}
+
+// A bet should be finished if its hand has blackjack.
+func TestBet_IsFinished_Blackjack(t *testing.T) {
+	bet := &Bet{big.NewFloat(0), &cards.Hand{}, false}
+	assert.False(t, bet.IsFinished())
+	bet.Hand.Hit(cards.NewCard(cards.Ace, cards.Spades))
+	bet.Hand.Hit(cards.NewCard(cards.Jack, cards.Diamonds))
+	assert.True(t, bet.IsFinished())
+}
+
+// A bet should be finished if its hand is bust.
+func TestBet_IsFinished_Bust(t *testing.T) {
+	bet := &Bet{big.NewFloat(0), &cards.Hand{}, false}
+	assert.False(t, bet.IsFinished())
+	bet.Hand.Hit(cards.NewCard(cards.Queen, cards.Spades))
+	bet.Hand.Hit(cards.NewCard(cards.Jack, cards.Diamonds))
+	bet.Hand.Hit(cards.NewCard(cards.Three, cards.Hearts))
+	assert.True(t, bet.IsFinished())
+}
+
+// A bet should have focus if it is the only bet.
+func TestBet_HasFocus_Alone(t *testing.T) {
+	player := (&Board{}).Begin(0).initPlayer(5, 95)
+	assert.True(t, player.Bets[0].HasFocus(player))
+}
+
+// A bet should have focus if it is the first bet and is not finished.
+func TestBet_HasFocus_FirstNotFinished(t *testing.T) {
+	player := (&Board{}).Begin(0).initPlayer(5, 95)
+	player.Bets = append(player.Bets, &Bet{big.NewFloat(0), &cards.Hand{}, false})
+	assert.True(t, player.Bets[0].HasFocus(player))
+	assert.False(t, player.Bets[1].HasFocus(player))
+}
+
+// A bet should have focus if it is second bet and the first is finished.
+func TestBet_HasFocus_SecondFirstFinished(t *testing.T) {
+	player := (&Board{}).Begin(0).initPlayer(5, 95)
+	player.Bets = append(player.Bets, &Bet{big.NewFloat(0), &cards.Hand{}, false})
+	player.Bets[0].stand = true
+	assert.False(t, player.Bets[0].HasFocus(player))
+	assert.True(t, player.Bets[1].HasFocus(player))
+}
+
+// A bet should have focus if it is second bet and the first is finished, even
+// if the third bet is not finished.
+func TestBet_HasFocus_SecondFirstFinishedThirdNot(t *testing.T) {
+	player := (&Board{}).Begin(0).initPlayer(5, 95)
+	player.Bets = append(player.Bets, &Bet{big.NewFloat(0), &cards.Hand{}, false})
+	player.Bets = append(player.Bets, &Bet{big.NewFloat(0), &cards.Hand{}, false})
+	player.Bets[0].stand = true
+	assert.False(t, player.Bets[0].HasFocus(player))
+	assert.True(t, player.Bets[1].HasFocus(player))
+	assert.False(t, player.Bets[2].HasFocus(player))
 }
 
 //
@@ -424,8 +503,7 @@ func TestPlayerStage_Actions_Stand(t *testing.T) {
 	stand.Execute(board)
 	board.wg.Wait()
 
-	// Should advance to dealer stage.
-	assert.Equal(t, &DealerStage{}, board.Stage)
+	assert.Equal(t, &Observing{}, board.Stage)
 }
 
 // Splitting should not be possible when the active Hand does not consist of two
@@ -453,7 +531,7 @@ func TestPlayerStage_Actions_CanSplit(t *testing.T) {
 	board := &Board{}
 	board.Begin(0)
 
-	// Ensure splitting is not allowed first.
+	// Ensure splitting is allowed.
 	board.Deck.Cards[51] = cards.NewCard(cards.Ten, cards.Clubs)     // dealer 1
 	board.Deck.Cards[50] = cards.NewCard(cards.Five, cards.Spades)   // player 1
 	board.Deck.Cards[49] = cards.NewCard(cards.Seven, cards.Clubs)   // dealer 2

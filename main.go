@@ -16,6 +16,7 @@ func main() {
 	defer termui.Close()
 
 	board := newBoard()
+
 	display := newDisplay()
 	display.AttachBoard(board)
 
