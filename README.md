@@ -14,6 +14,15 @@ The game uses a single
 
 ![Blackjack screenshot](screenshot.png)
 
+## Playing
+
+If you have Go installed then you should be able to play the game with:
+
+```bash
+go get -u github.com/hughgrigg/blackjack
+blackjack
+```
+
 ## Tests
 
 You can run all the tests with:
