@@ -12,6 +12,8 @@ game is also known as twenty-one.
 The game uses a single
 [52-card deck](https://en.wikipedia.org/wiki/Standard_52-card_deck).
 
+![Blackjack screenshot](screenshot.png)
+
 ## Tests
 
 You can run all the tests with:
