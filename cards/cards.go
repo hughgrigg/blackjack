@@ -9,6 +9,8 @@ import (
 
 	"math/big"
 
+	"strings"
+
 	"github.com/hughgrigg/blackjack/util"
 )
 
@@ -207,6 +209,10 @@ func (h *Hand) IsBust() bool {
 // HasBlackJack sees if the hand has blackjack, i.e. 21 is one of its possible
 // scores.
 func (h *Hand) HasBlackJack() bool {
+	// Blackjack is achieved with 2 cards only, otherwise it's just 21.
+	if len(h.Cards) != 2 {
+		return false
+	}
 	for _, score := range h.Scores() {
 		if score == 21 {
 			return true
@@ -281,6 +287,20 @@ func (h *Hand) WinFactor(other *Hand) *big.Float {
 	return big.NewFloat(0)
 }
 
+// CanSplit is true if the hand can legally be split into two hands. This is
+// allowed when the hand contains two cards of the same rank.
+func (h *Hand) CanSplit() bool {
+	if len(h.Cards) != 2 {
+		return false
+	}
+	for _, first := range h.Cards[0].Values() {
+		if !util.IntsContain(first, h.Cards[1].Values()) {
+			return false
+		}
+	}
+	return true
+}
+
 // Render the hand as a string.
 func (h Hand) Render() string {
 	buffer := bytes.Buffer{}
@@ -294,25 +314,7 @@ func (h Hand) Render() string {
 	buffer.WriteString(fmt.Sprintf(
 		"  (%s)", scoresRenderer{h.Scores()}.Render(),
 	))
-	return buffer.String()
-}
-
-// Player can have many hands
-type HandSet struct {
-	Hands []*Hand
-}
-
-// Get a rendering of the hand set as a string.
-func (hs HandSet) Render() string {
-	buffer := bytes.Buffer{}
-	last := len(hs.Hands) - 1
-	for i, hand := range hs.Hands {
-		buffer.WriteString(hand.Render())
-		if i != last {
-			buffer.WriteString(" | ")
-		}
-	}
-	return buffer.String()
+	return strings.Trim(buffer.String(), " ")
 }
 
 // Get the possible scores for the hand. Due to aces being 1 or 11, a hand can

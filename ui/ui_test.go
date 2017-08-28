@@ -77,7 +77,7 @@ type fooStage struct {
 func (fs fooStage) Begin(b *game.Board) {
 }
 
-func (fs fooStage) Actions() game.ActionSet {
+func (fs fooStage) Actions(board *game.Board) game.ActionSet {
 	return game.ActionSet{
 		"f": {
 			Execute: func(b *game.Board) bool {

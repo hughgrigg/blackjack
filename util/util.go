@@ -62,6 +62,16 @@ func MaxInt(items []int) int {
 	return max
 }
 
+// IntsContain check if a slice of ints contains a given int.
+func IntsContain(needle int, haystack []int) bool {
+	for _, hay := range haystack {
+		if hay == needle {
+			return true
+		}
+	}
+	return false
+}
+
 // And a float64 to a big.Float.
 func AddBigFloat(x *big.Float, y float64) *big.Float {
 	var newVal big.Float

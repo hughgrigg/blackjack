@@ -12,7 +12,7 @@ import (
 
 type Stage interface {
 	Begin(board *Board)
-	Actions() ActionSet
+	Actions(board *Board) ActionSet
 }
 
 // Betting is when the player can place their bet and then ask to deal.
@@ -22,17 +22,17 @@ type Betting struct {
 // Begin resets the hands and bets.
 func (b Betting) Begin(board *Board) {
 	board.Log.Push("Round started")
-	board.resetHands()
+	board.resetHands(-1)
 	board.Deck.Init()
 	board.Deck.Shuffle(cards.UniqueShuffle)
-	board.Bank.Bets = []*Bet{
-		{amount: big.NewFloat(0), hand: board.Player.Hands[0]},
+	board.Player.Bets = []*Bet{
+		{amount: big.NewFloat(0), Hand: board.Player.ActiveBet().Hand},
 	}
-	board.Bank.Raise(5) // Try to bet if possible.
+	board.Player.Raise(5) // Try to bet if possible.
 }
 
 // Actions during betting are dealing, raising and lowering.
-func (b Betting) Actions() ActionSet {
+func (b Betting) Actions(board *Board) ActionSet {
 	return map[string]PlayerAction{
 		"d": {
 			func(b *Board) bool {
@@ -43,13 +43,13 @@ func (b Betting) Actions() ActionSet {
 		},
 		"r": {
 			func(b *Board) bool {
-				return b.Bank.Raise(5)
+				return b.Player.Raise(5)
 			},
 			"Raise",
 		},
 		"l": {
 			func(b *Board) bool {
-				return b.Bank.Lower(5)
+				return b.Player.Lower(5)
 			},
 			"Lower",
 		},
@@ -66,7 +66,7 @@ func (o Observing) Begin(board *Board) {
 }
 
 // Actions are empty during observing.
-func (o Observing) Actions() ActionSet {
+func (o Observing) Actions(board *Board) ActionSet {
 	return map[string]PlayerAction{}
 }
 
@@ -79,8 +79,8 @@ func (ps PlayerStage) Begin(board *Board) {
 }
 
 // Actions are hit or stand during the player stage.
-func (ps PlayerStage) Actions() ActionSet {
-	return map[string]PlayerAction{
+func (ps PlayerStage) Actions(board *Board) ActionSet {
+	actions := map[string]PlayerAction{
 		"h": {
 			func(b *Board) bool {
 				b.HitPlayer()
@@ -93,6 +93,7 @@ func (ps PlayerStage) Actions() ActionSet {
 				b.Stage = &Observing{}
 				b.action(func(b *Board) bool {
 					b.Stage = &DealerStage{}
+					b.Player.ActiveBet().stand = true
 					go func() {
 						b.Dealer.Play(b)
 					}()
@@ -110,6 +111,16 @@ func (ps PlayerStage) Actions() ActionSet {
 			"Double Down",
 		},
 	}
+	if board.Player.ActiveBet().Hand.CanSplit() {
+		actions["p"] = PlayerAction{
+			func(b *Board) bool {
+				b.Player.ActiveBet().Split(b)
+				return true
+			},
+			"Split",
+		}
+	}
+	return actions
 }
 
 // DealerStage is the dealer's turn to play.
@@ -129,7 +140,7 @@ type Assessment struct {
 
 // Begin triggers the end game reckoning to take place during assessment.
 func (a Assessment) Begin(board *Board) {
-	for _, bet := range board.Bank.Bets {
+	for _, bet := range board.Player.Bets {
 		board.action(func(b *Board) bool {
 			bet.Conclude(b)
 			return true
@@ -146,7 +157,7 @@ func (c Conclusion) Begin(board *Board) {
 }
 
 // Actions at the end of a round only allow a new round to be started.
-func (c Conclusion) Actions() ActionSet {
+func (c Conclusion) Actions(board *Board) ActionSet {
 	return map[string]PlayerAction{
 		"n": {
 			func(b *Board) bool {
