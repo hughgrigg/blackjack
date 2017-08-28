@@ -37,7 +37,6 @@ for p in cards game ui util; do go test -coverprofile cover.out ./${p}; done
 
 ## Todo
 
- - merge board.Player and board.Bank into one thing
  - Splitting
  - Insurance
  - Hints

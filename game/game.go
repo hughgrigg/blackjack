@@ -17,8 +17,7 @@ import (
 type Board struct {
 	Deck        *cards.Deck
 	Dealer      *Dealer
-	Player      *cards.HandSet
-	Bank        *Bank
+	Player      *Player
 	Log         *Log
 	Stage       Stage
 	actionQueue chan Action
@@ -46,8 +45,7 @@ func (b *Board) Begin(actionDelay int) *Board {
 	b.Deck.Init()
 	b.Deck.Shuffle(cards.UniqueShuffle)
 
-	b.resetHands()
-	b.initBank(-1, -1)
+	b.initPlayer(-1, -1)
 
 	// Run board actions with a more human interval so the player can keep up.
 	b.wg = &sync.WaitGroup{}
@@ -76,15 +74,18 @@ func (b *Board) Wait() *Board {
 }
 
 // Initialise the dealer's and player's hands.
-func (b *Board) resetHands() {
+func (b *Board) resetHands(initialBet float64) {
+	if initialBet < 0 {
+		initialBet = 5
+	}
 	if b.Dealer == nil {
 		b.Dealer = &Dealer{}
 	}
-	if b.Player == nil {
-		b.Player = &cards.HandSet{}
-	}
 	b.Dealer.hand = &cards.Hand{}
-	b.Player.Hands = []*cards.Hand{{}}
+	b.Player.Bets = append(
+		[]*Bet{},
+		&Bet{big.NewFloat(initialBet), &cards.Hand{}, false},
+	)
 }
 
 // ChangeStage progresses the game on to a new stage.
@@ -132,7 +133,7 @@ func (d *Dealer) MustHit() bool {
 	return true
 }
 
-// Render gets a rendering of the dealer's hand as a string.
+// Render gets a rendering of the dealer's Hand as a string.
 func (d Dealer) Render() string {
 	return d.hand.Render()
 }
@@ -165,14 +166,14 @@ func (b *Board) Deal() *Board {
 
 	// Begin player stage if we have not gone straight to conclusion due to
 	// player immediately getting blackjack.
-	if !b.Player.Hands[0].HasBlackJack() {
+	if !b.Player.ActiveBet().Hand.HasBlackJack() {
 		b.ChangeStage(&PlayerStage{})
 	}
 
 	return b
 }
 
-// HitDealer hits the dealer's hand and checks if that ends their turn.
+// HitDealer hits the dealer's Hand and checks if that ends their turn.
 func (b *Board) HitDealer() *Board {
 	b.action(func(b *Board) bool {
 		card := b.Deck.Pop().FaceUp()
@@ -185,7 +186,7 @@ func (b *Board) HitDealer() *Board {
 	return b
 }
 
-// ConcludeDealerTurn checks the dealer's hand and advances the game stage once they
+// ConcludeDealerTurn checks the dealer's Hand and advances the game stage once they
 // have hard 17 or higher.
 func (b *Board) ConcludeDealerTurn() *Board {
 	// Has the dealer bust?
@@ -213,28 +214,28 @@ func (b *Board) ConcludeDealerTurn() *Board {
 	return b
 }
 
-// HitPlayer hits the player's first hand and advances the game stage if
+// HitPlayer hits the player's first Hand and advances the game stage if
 // appropriate.
 func (b *Board) HitPlayer() *Board {
 	b.action(func(b *Board) bool {
 		card := b.Deck.Pop().FaceUp()
 		b.Log.Push(fmt.Sprintf("Player dealt %s", card.Render()))
-		b.Player.Hands[len(b.Player.Hands)-1].Hit(card)
+		b.Player.ActiveBet().Hand.Hit(card)
 
 		return true
 	}).Wait()
 
 	// Has player bust?
-	if b.Player.Hands[0].IsBust() {
+	if b.Player.ActiveBet().Hand.IsBust() {
 		b.Log.Push(fmt.Sprintf(
 			"Player busts at %d",
-			util.MinInt(b.Player.Hands[0].Scores()),
+			util.MinInt(b.Player.ActiveBet().Hand.Scores()),
 		))
 		b.ChangeStage(&DealerStage{})
 	}
 
 	// Has player got blackjack?
-	if b.Player.Hands[0].HasBlackJack() {
+	if b.Player.ActiveBet().Hand.HasBlackJack() {
 		b.Log.Push("[Player has blackjack!](fg-cyan)")
 		b.ChangeStage(&DealerStage{})
 	}
@@ -242,15 +243,15 @@ func (b *Board) HitPlayer() *Board {
 	return b
 }
 
-// DoubleDown doubles the player's first bet, hits the player's first hand and
+// DoubleDown doubles the player's first bet, hits the player's first Hand and
 // immediately advances the game stage.
 func (b *Board) DoubleDown() *Board {
 
 	// Double bet.
 	b.action(func(b *Board) bool {
-		amount := *b.Bank.Bets[0].amount
-		b.Bank.Bets[0].amount.Add(&amount, &amount)
-		b.Bank.Balance.Sub(b.Bank.Balance, &amount)
+		amount := *b.Player.Bets[0].amount
+		b.Player.Bets[0].amount.Add(&amount, &amount)
+		b.Player.Balance.Sub(b.Player.Balance, &amount)
 		return true
 	}).Wait()
 
@@ -258,21 +259,21 @@ func (b *Board) DoubleDown() *Board {
 	b.action(func(b *Board) bool {
 		card := b.Deck.Pop().FaceUp()
 		b.Log.Push(fmt.Sprintf("Player dealt %s", card.Render()))
-		b.Player.Hands[len(b.Player.Hands)-1].Hit(card)
+		b.Player.ActiveBet().Hand.Hit(card)
 
 		return true
 	}).Wait()
 
 	// Has player bust?
-	if b.Player.Hands[0].IsBust() {
+	if b.Player.ActiveBet().Hand.IsBust() {
 		b.Log.Push(fmt.Sprintf(
 			"Player busts at %d",
-			util.MinInt(b.Player.Hands[0].Scores()),
+			util.MinInt(b.Player.ActiveBet().Hand.Scores()),
 		))
 	}
 
 	// Has player got blackjack?
-	if b.Player.Hands[0].HasBlackJack() {
+	if b.Player.ActiveBet().Hand.HasBlackJack() {
 		b.Log.Push("[Player has blackjack!](fg-cyan)")
 	}
 
@@ -315,40 +316,37 @@ func (l Log) Render() string {
 }
 
 //
-// Bank
+// Player
 //
-type Bank struct {
-	// Indexed bets corresponding to each player hand
+type Player struct {
+	// Indexed bets corresponding to each player Hand
 	Bets    []*Bet
 	Balance *big.Float
 }
 
-// initBank constructs a new bank instance for the board.
-func (b *Board) initBank(initialBet float64, balance float64) *Bank {
+// initPlayer constructs a new p instance for the board.
+func (b *Board) initPlayer(initialBet float64, balance float64) *Player {
 	if initialBet < 0 {
 		initialBet = 5
 	}
 	if balance < 0 {
 		balance = 95
 	}
-	b.Bank = &Bank{}
-	b.Bank.Bets = append(
-		[]*Bet{},
-		&Bet{big.NewFloat(initialBet), b.Player.Hands[0], false},
-	)
-	b.Bank.Balance = big.NewFloat(balance)
-	return b.Bank
+	b.Player = &Player{}
+	b.resetHands(initialBet)
+	b.Player.Balance = big.NewFloat(balance)
+	return b.Player
 }
 
 // Raise the first bet.
-func (bank *Bank) Raise(amount float64) bool {
-	if bank.Balance.Cmp(big.NewFloat(amount)) == 1 {
-		bank.Bets[0].amount = util.AddBigFloat(
-			bank.Bets[0].amount,
+func (p *Player) Raise(amount float64) bool {
+	if p.Balance.Cmp(big.NewFloat(amount)) == 1 {
+		p.Bets[0].amount = util.AddBigFloat(
+			p.Bets[0].amount,
 			amount,
 		)
-		bank.Balance = util.AddBigFloat(
-			bank.Balance,
+		p.Balance = util.AddBigFloat(
+			p.Balance,
 			-amount,
 		)
 		return true
@@ -357,14 +355,14 @@ func (bank *Bank) Raise(amount float64) bool {
 }
 
 // Lower the first bet.
-func (bank *Bank) Lower(amount float64) bool {
-	if bank.Bets[0].amount.Cmp(big.NewFloat(amount)) == 1 {
-		bank.Bets[0].amount = util.AddBigFloat(
-			bank.Bets[0].amount,
+func (p *Player) Lower(amount float64) bool {
+	if p.Bets[0].amount.Cmp(big.NewFloat(amount)) == 1 {
+		p.Bets[0].amount = util.AddBigFloat(
+			p.Bets[0].amount,
 			-amount,
 		)
-		bank.Balance = util.AddBigFloat(
-			bank.Balance,
+		p.Balance = util.AddBigFloat(
+			p.Balance,
 			amount,
 		)
 		return true
@@ -373,30 +371,31 @@ func (bank *Bank) Lower(amount float64) bool {
 }
 
 // ActiveBet gets the bet currently being played.
-func (bank *Bank) ActiveBet() *Bet {
-	for _, bet := range bank.Bets {
+func (p *Player) ActiveBet() *Bet {
+	for _, bet := range p.Bets {
 		if !bet.IsFinished() {
 			return bet
 		}
 	}
-	return nil
+	return p.Bets[0]
 }
 
 var ac = accounting.Accounting{Symbol: "£", Precision: 2}
 
-// Render gets a rendering of the bank as a string.
-func (bank Bank) Render() string {
+// Render gets a rendering of the player's hands and bets as a string.
+func (p Player) Render() string {
 	buffer := bytes.Buffer{}
-	last := len(bank.Bets) - 1
-	for i, bet := range bank.Bets {
+	last := len(p.Bets) - 1
+	for i, bet := range p.Bets {
 		buffer.WriteString(fmt.Sprintf(
-			"[%s](fg-bold,fg-cyan)", ac.FormatMoneyBigFloat(bet.amount),
+			"%s {[%s](fg-bold,fg-cyan)}",
+			bet.Hand.Render(),
+			ac.FormatMoneyBigFloat(bet.amount),
 		))
 		if i != last {
-			buffer.WriteString(" , ")
+			buffer.WriteString(" | ")
 		}
 	}
-	buffer.WriteString(fmt.Sprintf(" / %s", ac.FormatMoneyBigFloat(bank.Balance)))
 	return buffer.String()
 }
 
@@ -405,40 +404,38 @@ func (bank Bank) Render() string {
 //
 type Bet struct {
 	amount *big.Float
-	hand   *cards.Hand
+	Hand   *cards.Hand
 	stand  bool
 }
 
-// IsFinished shows if the bet is finished, i.e. its hand is complete and the
+// IsFinished shows if the bet is finished, i.e. its Hand is complete and the
 // player can not take further action on it.
 func (b *Bet) IsFinished() bool {
-	if b.stand || b.hand.HasBlackJack() || b.hand.IsBust() {
+	if b.stand || b.Hand.HasBlackJack() || b.Hand.IsBust() {
 		return true
 	}
 	return false
 }
 
-// Split turns this bet and hand into two separate bets and hands.
+// Split turns this bet and Hand into two separate bets and hands.
 func (b *Bet) Split(board *Board) {
 	newBet := &Bet{&*b.amount, &cards.Hand{}, false}
-	board.Bank.Balance.Sub(board.Bank.Balance, b.amount)
 
-	// todo: merge bank and player to avoid this duplication
-	board.Player.Hands = append(board.Player.Hands, newBet.hand)
-	board.Bank.Bets = append(board.Bank.Bets, newBet)
+	board.Player.Balance.Sub(board.Player.Balance, b.amount)
+	board.Player.Bets = append(board.Player.Bets, newBet)
 
 	// Split the two cards between the bets.
-	newBet.hand.Cards = []*cards.Card{b.hand.Cards[1]}
-	b.hand.Cards = []*cards.Card{b.hand.Cards[0]}
+	newBet.Hand.Cards = []*cards.Card{b.Hand.Cards[1]}
+	b.Hand.Cards = []*cards.Card{b.Hand.Cards[0]}
 }
 
 // Conclude ends the bet and pays the player's winnings (if any).
 func (b *Bet) Conclude(board *Board) {
 	// Pay the winnings for this bet, if any.
 	amount := *b.amount
-	winnings := amount.Mul(b.amount, b.hand.WinFactor(board.Dealer.hand))
-	board.Bank.Balance.Add(board.Bank.Balance, winnings)
-	winFactor, _ := b.hand.WinFactor(board.Dealer.hand).Float64()
+	winnings := amount.Mul(b.amount, b.Hand.WinFactor(board.Dealer.hand))
+	board.Player.Balance.Add(board.Player.Balance, winnings)
+	winFactor, _ := b.Hand.WinFactor(board.Dealer.hand).Float64()
 	switch winFactor {
 	case 2.5:
 		board.Log.Push(

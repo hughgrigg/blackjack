@@ -22,13 +22,13 @@ type Betting struct {
 // Begin resets the hands and bets.
 func (b Betting) Begin(board *Board) {
 	board.Log.Push("Round started")
-	board.resetHands()
+	board.resetHands(-1)
 	board.Deck.Init()
 	board.Deck.Shuffle(cards.UniqueShuffle)
-	board.Bank.Bets = []*Bet{
-		{amount: big.NewFloat(0), hand: board.Player.Hands[0]},
+	board.Player.Bets = []*Bet{
+		{amount: big.NewFloat(0), Hand: board.Player.ActiveBet().Hand},
 	}
-	board.Bank.Raise(5) // Try to bet if possible.
+	board.Player.Raise(5) // Try to bet if possible.
 }
 
 // Actions during betting are dealing, raising and lowering.
@@ -43,13 +43,13 @@ func (b Betting) Actions(board *Board) ActionSet {
 		},
 		"r": {
 			func(b *Board) bool {
-				return b.Bank.Raise(5)
+				return b.Player.Raise(5)
 			},
 			"Raise",
 		},
 		"l": {
 			func(b *Board) bool {
-				return b.Bank.Lower(5)
+				return b.Player.Lower(5)
 			},
 			"Lower",
 		},
@@ -93,7 +93,7 @@ func (ps PlayerStage) Actions(board *Board) ActionSet {
 				b.Stage = &Observing{}
 				b.action(func(b *Board) bool {
 					b.Stage = &DealerStage{}
-					b.Bank.ActiveBet().stand = true
+					b.Player.ActiveBet().stand = true
 					go func() {
 						b.Dealer.Play(b)
 					}()
@@ -111,10 +111,10 @@ func (ps PlayerStage) Actions(board *Board) ActionSet {
 			"Double Down",
 		},
 	}
-	if board.Bank.ActiveBet().hand.CanSplit() {
+	if board.Player.ActiveBet().Hand.CanSplit() {
 		actions["p"] = PlayerAction{
 			func(b *Board) bool {
-				b.Bank.ActiveBet().Split(b)
+				b.Player.ActiveBet().Split(b)
 				return true
 			},
 			"Split",
@@ -140,7 +140,7 @@ type Assessment struct {
 
 // Begin triggers the end game reckoning to take place during assessment.
 func (a Assessment) Begin(board *Board) {
-	for _, bet := range board.Bank.Bets {
+	for _, bet := range board.Player.Bets {
 		board.action(func(b *Board) bool {
 			bet.Conclude(b)
 			return true

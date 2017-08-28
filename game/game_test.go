@@ -41,8 +41,8 @@ func TestBoard_HitPlayer(t *testing.T) {
 
 	board.HitPlayer().Wait()
 
-	// Should have added a card to the player's hand
-	assert.Equal(t, 1, len(board.Player.Hands[0].Cards))
+	// Should have added a card to the player's Hand
+	assert.Equal(t, 1, len(board.Player.ActiveBet().Hand.Cards))
 }
 
 // The player stage should end if the player gets blackjack.
@@ -88,8 +88,8 @@ func TestBoard_DoubleDown(t *testing.T) {
 	board.Deck.Cards[47] = cards.NewCard(cards.Five, cards.Hearts)   // player 3
 	board.Deal().Wait()
 
-	originalBet := *board.Bank.Bets[0].amount
-	originalBalance := *board.Bank.Balance
+	originalBet := *board.Player.Bets[0].amount
+	originalBalance := *board.Player.Balance
 
 	board.DoubleDown().Wait()
 
@@ -106,11 +106,11 @@ func TestBoard_DoubleDown(t *testing.T) {
 				big.NewFloat(3), // = 2x bet, plus the bet itself
 			),
 		),
-		board.Bank.Balance,
+		board.Player.Balance,
 	)
 }
 
-// Should be able to hit the dealer's hand.
+// Should be able to hit the dealer's Hand.
 func TestBoard_HitDealer(t *testing.T) {
 	board := Board{}
 	board.Begin(0).Wait()
@@ -188,7 +188,7 @@ func TestBoard_ChangeStage(t *testing.T) {
 // Dealer
 //
 
-// Should be able to render the dealer's hand.
+// Should be able to render the dealer's Hand.
 func TestDealer_Render(t *testing.T) {
 	dealer := Dealer{&cards.Hand{}}
 	dealer.hand.Hit(cards.NewCard(cards.Ace, cards.Spades))
@@ -218,61 +218,64 @@ func TestLog_Limit(t *testing.T) {
 }
 
 //
-// Bank
+// Player
 //
 
-// Should be able to render the player's bank.
-func TestBank_Render(t *testing.T) {
-	bank := (&Board{}).Begin(0).initBank(5, 95)
-	assert.Equal(t, "[£5.00](fg-bold,fg-cyan) / £95.00", bank.Render())
-	bank.Bets = append(bank.Bets, &Bet{big.NewFloat(2), nil, false})
+// Should be able to render the player's hands and bets.
+func TestPlayer_Render(t *testing.T) {
+	player := (&Board{}).Begin(0).initPlayer(5, 95)
+	assert.Equal(t, "(0) {[£5.00](fg-bold,fg-cyan)}", player.Render())
+	player.Bets = append(
+		player.Bets,
+		&Bet{big.NewFloat(2), &cards.Hand{}, false},
+	)
 	assert.Equal(
 		t,
-		"[£5.00](fg-bold,fg-cyan) , [£2.00](fg-bold,fg-cyan) / £95.00",
-		bank.Render(),
+		"(0) {[£5.00](fg-bold,fg-cyan)} | (0) {[£2.00](fg-bold,fg-cyan)}",
+		player.Render(),
 	)
 }
 
 // Should be able to raise the bet.
-func TestBank_Raise(t *testing.T) {
-	bank := (&Board{}).Begin(0).initBank(10, 15)
-	raised := bank.Raise(5)
+func TestPlayer_Raise(t *testing.T) {
+	player := (&Board{}).Begin(0).initPlayer(10, 15)
+	raised := player.Raise(5)
 	assert.True(t, raised, "Bet should be raised")
-	assert.Equal(t, big.NewFloat(15), bank.Bets[0].amount)
-	assert.Equal(t, big.NewFloat(10), bank.Balance)
+	assert.Equal(t, big.NewFloat(15), player.Bets[0].amount)
+	assert.Equal(t, big.NewFloat(10), player.Balance)
 }
 
 // Should be able to lower the bet.
-func TestBank_Lower(t *testing.T) {
-	bank := (&Board{}).Begin(0).initBank(15, 0)
-	lowered := bank.Lower(5)
+func TestPlayer_Lower(t *testing.T) {
+	player := (&Board{}).Begin(0).initPlayer(15, 0)
+	lowered := player.Lower(5)
 	assert.True(t, lowered, "Bet should be lowered")
-	assert.Equal(t, big.NewFloat(10), bank.Bets[0].amount)
-	assert.Equal(t, big.NewFloat(5), bank.Balance)
+	assert.Equal(t, big.NewFloat(10), player.Bets[0].amount)
+	assert.Equal(t, big.NewFloat(5), player.Balance)
 }
 
 // Should not be able to raise the bet beyond the available balance.
-func TestBank_RaiseMax(t *testing.T) {
-	bank := (&Board{}).Begin(0).initBank(0, 5)
-	raised := bank.Raise(10)
+func TestPlayer_RaiseMax(t *testing.T) {
+	player := (&Board{}).Begin(0).initPlayer(0, 5)
+	raised := player.Raise(10)
 	assert.False(t, raised, "Bet should not be raised")
-	assert.Equal(t, big.NewFloat(0), bank.Bets[0].amount)
-	assert.Equal(t, big.NewFloat(5), bank.Balance)
+	assert.Equal(t, big.NewFloat(0), player.Bets[0].amount)
+	assert.Equal(t, big.NewFloat(5), player.Balance)
 }
 
 // Should not be able to lower the bet beyond the minimum.
-func TestBank_LowerMin(t *testing.T) {
-	bank := (&Board{}).Begin(0).initBank(5, 5)
-	raised := bank.Lower(10)
+func TestPlayer_LowerMin(t *testing.T) {
+	player := (&Board{}).Begin(0).initPlayer(5, 5)
+	raised := player.Lower(10)
 	assert.False(t, raised, "Bet should not be lowered")
-	assert.Equal(t, big.NewFloat(5), bank.Bets[0].amount)
-	assert.Equal(t, big.NewFloat(5), bank.Balance)
+	assert.Equal(t, big.NewFloat(5), player.Bets[0].amount)
+	assert.Equal(t, big.NewFloat(5), player.Balance)
 }
 
 // Should be able to get the bet being played.
-func TestBank_ActiveBet(t *testing.T) {
-	bank := (&Board{}).Begin(0).initBank(5, 5)
-	assert.IsType(t, &Bet{}, bank.ActiveBet())
+func TestPlayer_ActiveBet(t *testing.T) {
+	player := (&Board{}).Begin(0).initPlayer(5, 5)
+	assert.IsType(t, &Bet{}, player.ActiveBet())
 }
 
 //
@@ -325,7 +328,7 @@ func TestBetting_Actions_Raise(t *testing.T) {
 	board := &Board{}
 	board.Begin(0)
 
-	originalBetAmount := *board.Bank.Bets[0].amount
+	originalBetAmount := *board.Player.Bets[0].amount
 
 	raise := betting.Actions(board)["r"]
 	raise.Execute(board)
@@ -334,7 +337,7 @@ func TestBetting_Actions_Raise(t *testing.T) {
 	// Should raise player's bet
 	assert.Equal(
 		t,
-		board.Bank.Bets[0].amount.Cmp(&originalBetAmount),
+		board.Player.Bets[0].amount.Cmp(&originalBetAmount),
 		1,
 		"Bet should have been raised",
 	)
@@ -350,7 +353,7 @@ func TestBetting_Actions_Lower(t *testing.T) {
 	raise := betting.Actions(board)["r"]
 	raise.Execute(board)
 
-	originalBetAmount := *board.Bank.Bets[0].amount
+	originalBetAmount := *board.Player.Bets[0].amount
 
 	lower := betting.Actions(board)["l"]
 	lower.Execute(board)
@@ -359,7 +362,7 @@ func TestBetting_Actions_Lower(t *testing.T) {
 	// Should lower player's bet
 	assert.Equal(
 		t,
-		board.Bank.Bets[0].amount.Cmp(&originalBetAmount),
+		board.Player.Bets[0].amount.Cmp(&originalBetAmount),
 		-1,
 		"Bet should have been lowered",
 	)
@@ -396,17 +399,17 @@ func TestPlayerStage_Actions_Hit(t *testing.T) {
 	board := &Board{}
 	board.Begin(0)
 
-	originalHandSize := len(board.Player.Hands[0].Cards)
+	originalHandSize := len(board.Player.ActiveBet().Hand.Cards)
 
 	hit := playerStage.Actions(board)["h"]
 	hit.Execute(board)
 	board.wg.Wait()
 
-	// Should increase player hand size
+	// Should increase player Hand size
 	assert.True(
 		t,
-		len(board.Player.Hands[0].Cards) > originalHandSize,
-		"Size of player's hand should have increased",
+		len(board.Player.ActiveBet().Hand.Cards) > originalHandSize,
+		"Size of player's Hand should have increased",
 	)
 }
 
@@ -425,7 +428,7 @@ func TestPlayerStage_Actions_Stand(t *testing.T) {
 	assert.Equal(t, &DealerStage{}, board.Stage)
 }
 
-// Splitting should not be possible when the active hand does not consist of two
+// Splitting should not be possible when the active Hand does not consist of two
 // cards of the same value.
 func TestPlayerStage_Actions_CanNotSplit(t *testing.T) {
 	board := &Board{}
@@ -444,7 +447,7 @@ func TestPlayerStage_Actions_CanNotSplit(t *testing.T) {
 	assert.False(t, canSplit)
 }
 
-// Splitting should be possible when the active hand consists of two cards of
+// Splitting should be possible when the active Hand consists of two cards of
 // the same value.
 func TestPlayerStage_Actions_CanSplit(t *testing.T) {
 	board := &Board{}
@@ -466,13 +469,13 @@ func TestPlayerStage_Actions_CanSplit(t *testing.T) {
 
 	assert.Len(
 		t,
-		board.Bank.Bets,
+		board.Player.Bets,
 		2,
 		"Should have split into 2 bets.",
 	)
 }
 
-// If the player immediately gets blackjack in their initial hand, then the
+// If the player immediately gets blackjack in their initial Hand, then the
 // player stage should be skipped and we should go through to the conclusion.
 func TestPlayerStage_SkippedOnBlackjack(t *testing.T) {
 	board := &Board{}

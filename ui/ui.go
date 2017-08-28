@@ -8,6 +8,7 @@ import (
 	"github.com/gizak/termui"
 	"github.com/hughgrigg/blackjack/game"
 	"github.com/hughgrigg/blackjack/util"
+	"github.com/leekchan/accounting"
 )
 
 // The master display object containing all the sub-views.
@@ -16,7 +17,7 @@ type Display struct {
 	dealerView   *View
 	deckView     *View
 	playerView   *View
-	bankView     *View
+	balanceView  *View
 	eventLogView *View
 	actionsView  *View
 	views        []*View
@@ -58,15 +59,15 @@ func (d *Display) initViews() {
 	d.deckView = d.NewView("Deck", 5)
 	d.dealerView = d.NewView("Dealer's Hand", 5)
 	d.dealerView.BorderLabelFg = termui.ColorRed
-	d.playerView = d.NewView("Player's Hand", 5)
+	d.playerView = d.NewView("Player's Hands & Bets", 5)
 	d.playerView.BorderLabelFg = termui.ColorGreen
-	d.bankView = d.NewView("Bets / Balance", 5)
+	d.balanceView = d.NewView("Funds", 5)
 	d.actionsView = d.NewView("Actions", 5)
 	d.eventLogView = d.NewView("Game Log", util.SumInts([]int{
 		d.deckView.Height,
 		d.dealerView.Height,
 		d.playerView.Height,
-		d.bankView.Height,
+		d.balanceView.Height,
 		d.actionsView.Height,
 	}))
 	termui.Body.AddRows(
@@ -77,7 +78,7 @@ func (d *Display) initViews() {
 				d.deckView,
 				d.dealerView,
 				d.playerView,
-				d.bankView,
+				d.balanceView,
 				d.actionsView,
 			),
 			termui.NewCol(5, 0, d.eventLogView),
@@ -112,7 +113,7 @@ func (d *Display) AttachBoard(b *game.Board) {
 	d.deckView.renderer = b.Deck
 	d.dealerView.renderer = b.Dealer
 	d.playerView.renderer = b.Player
-	d.bankView.renderer = b.Bank
+	d.balanceView.renderer = BalanceRenderer{b.Player}
 	d.eventLogView.renderer = b.Log
 	d.actionsView.renderer = ActionSetRenderer{b}
 }
@@ -146,7 +147,7 @@ type ActionSetRenderer struct {
 	board *game.Board
 }
 
-// Get a rendering of a set of player actions as a string.
+// Render prints the action set as a string.
 func (asr ActionSetRenderer) Render() string {
 	keys := []string{}
 	actions := asr.board.Stage.Actions(asr.board)
@@ -177,4 +178,19 @@ func (asr ActionSetRenderer) Render() string {
 		}
 	}
 	return buffer.String()
+}
+
+// BalanceRenderer renders the player's bank balance.
+type BalanceRenderer struct {
+	player *game.Player
+}
+
+var ac = accounting.Accounting{Symbol: "£", Precision: 2}
+
+// Render prints the balance as a string.
+func (br BalanceRenderer) Render() string {
+	return fmt.Sprintf(
+		"[%s](fg-green)",
+		ac.FormatMoneyBigFloat(br.player.Balance),
+	)
 }

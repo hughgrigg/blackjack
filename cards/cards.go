@@ -9,6 +9,8 @@ import (
 
 	"math/big"
 
+	"strings"
+
 	"github.com/hughgrigg/blackjack/util"
 )
 
@@ -312,25 +314,7 @@ func (h Hand) Render() string {
 	buffer.WriteString(fmt.Sprintf(
 		"  (%s)", scoresRenderer{h.Scores()}.Render(),
 	))
-	return buffer.String()
-}
-
-// Player can have many hands
-type HandSet struct {
-	Hands []*Hand
-}
-
-// Get a rendering of the hand set as a string.
-func (hs HandSet) Render() string {
-	buffer := bytes.Buffer{}
-	last := len(hs.Hands) - 1
-	for i, hand := range hs.Hands {
-		buffer.WriteString(hand.Render())
-		if i != last {
-			buffer.WriteString(" | ")
-		}
-	}
-	return buffer.String()
+	return strings.Trim(buffer.String(), " ")
 }
 
 // Get the possible scores for the hand. Due to aces being 1 or 11, a hand can
