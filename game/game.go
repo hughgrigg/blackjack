@@ -332,7 +332,10 @@ func (b *Board) initBank(initialBet float64, balance float64) *Bank {
 		balance = 95
 	}
 	b.Bank = &Bank{}
-	b.Bank.Bets = append([]*Bet{}, &Bet{big.NewFloat(initialBet), b.Player.Hands[0]})
+	b.Bank.Bets = append(
+		[]*Bet{},
+		&Bet{big.NewFloat(initialBet), b.Player.Hands[0], false},
+	)
 	b.Bank.Balance = big.NewFloat(balance)
 	return b.Bank
 }
@@ -369,9 +372,19 @@ func (bank *Bank) Lower(amount float64) bool {
 	return false
 }
 
+// ActiveBet gets the bet currently being played.
+func (bank *Bank) ActiveBet() *Bet {
+	for _, bet := range bank.Bets {
+		if !bet.IsFinished() {
+			return bet
+		}
+	}
+	return nil
+}
+
 var ac = accounting.Accounting{Symbol: "£", Precision: 2}
 
-// Get a rendering of the bank as a string.
+// Render gets a rendering of the bank as a string.
 func (bank Bank) Render() string {
 	buffer := bytes.Buffer{}
 	last := len(bank.Bets) - 1
@@ -393,9 +406,33 @@ func (bank Bank) Render() string {
 type Bet struct {
 	amount *big.Float
 	hand   *cards.Hand
+	stand  bool
 }
 
-// Conclude finishes the bet and pays the player's winnings (if any).
+// IsFinished shows if the bet is finished, i.e. its hand is complete and the
+// player can not take further action on it.
+func (b *Bet) IsFinished() bool {
+	if b.stand || b.hand.HasBlackJack() || b.hand.IsBust() {
+		return true
+	}
+	return false
+}
+
+// Split turns this bet and hand into two separate bets and hands.
+func (b *Bet) Split(board *Board) {
+	newBet := &Bet{&*b.amount, &cards.Hand{}, false}
+	board.Bank.Balance.Sub(board.Bank.Balance, b.amount)
+
+	// todo: merge bank and player to avoid this duplication
+	board.Player.Hands = append(board.Player.Hands, newBet.hand)
+	board.Bank.Bets = append(board.Bank.Bets, newBet)
+
+	// Split the two cards between the bets.
+	newBet.hand.Cards = []*cards.Card{b.hand.Cards[1]}
+	b.hand.Cards = []*cards.Card{b.hand.Cards[0]}
+}
+
+// Conclude ends the bet and pays the player's winnings (if any).
 func (b *Bet) Conclude(board *Board) {
 	// Pay the winnings for this bet, if any.
 	amount := *b.amount

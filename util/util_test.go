@@ -56,6 +56,12 @@ func TestMinInt(t *testing.T) {
 	assert.Equal(t, 5, MinInt([]int{5}))
 }
 
+// Should be able to see if a slice of ints contains a particular int.
+func TestIntsContain(t *testing.T) {
+	assert.True(t, IntsContain(5, []int{1, 2, 3, 4, 5}))
+	assert.False(t, IntsContain(2, []int{3, 4, 5}))
+}
+
 // Should be able to add a float to a big.Float.
 func TestAddBigFloat(t *testing.T) {
 	bf := big.NewFloat(12.5)

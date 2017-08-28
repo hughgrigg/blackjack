@@ -225,7 +225,7 @@ func TestLog_Limit(t *testing.T) {
 func TestBank_Render(t *testing.T) {
 	bank := (&Board{}).Begin(0).initBank(5, 95)
 	assert.Equal(t, "[£5.00](fg-bold,fg-cyan) / £95.00", bank.Render())
-	bank.Bets = append(bank.Bets, &Bet{big.NewFloat(2), nil})
+	bank.Bets = append(bank.Bets, &Bet{big.NewFloat(2), nil, false})
 	assert.Equal(
 		t,
 		"[£5.00](fg-bold,fg-cyan) , [£2.00](fg-bold,fg-cyan) / £95.00",
@@ -267,6 +267,12 @@ func TestBank_LowerMin(t *testing.T) {
 	assert.False(t, raised, "Bet should not be lowered")
 	assert.Equal(t, big.NewFloat(5), bank.Bets[0].amount)
 	assert.Equal(t, big.NewFloat(5), bank.Balance)
+}
+
+// Should be able to get the bet being played.
+func TestBank_ActiveBet(t *testing.T) {
+	bank := (&Board{}).Begin(0).initBank(5, 5)
+	assert.IsType(t, &Bet{}, bank.ActiveBet())
 }
 
 //
@@ -417,6 +423,53 @@ func TestPlayerStage_Actions_Stand(t *testing.T) {
 
 	// Should advance to dealer stage.
 	assert.Equal(t, &DealerStage{}, board.Stage)
+}
+
+// Splitting should not be possible when the active hand does not consist of two
+// cards of the same value.
+func TestPlayerStage_Actions_CanNotSplit(t *testing.T) {
+	board := &Board{}
+	board.Begin(0)
+
+	// Ensure splitting is not allowed first.
+	board.Deck.Cards[51] = cards.NewCard(cards.Ten, cards.Clubs)     // dealer 1
+	board.Deck.Cards[50] = cards.NewCard(cards.Queen, cards.Spades)  // player 1
+	board.Deck.Cards[49] = cards.NewCard(cards.Seven, cards.Clubs)   // dealer 2
+	board.Deck.Cards[48] = cards.NewCard(cards.Five, cards.Diamonds) // player 2
+	board.Deal().Wait()
+
+	assert.IsType(t, &PlayerStage{}, board.Stage)
+
+	_, canSplit := board.Stage.Actions(board)["p"]
+	assert.False(t, canSplit)
+}
+
+// Splitting should be possible when the active hand consists of two cards of
+// the same value.
+func TestPlayerStage_Actions_CanSplit(t *testing.T) {
+	board := &Board{}
+	board.Begin(0)
+
+	// Ensure splitting is not allowed first.
+	board.Deck.Cards[51] = cards.NewCard(cards.Ten, cards.Clubs)     // dealer 1
+	board.Deck.Cards[50] = cards.NewCard(cards.Five, cards.Spades)   // player 1
+	board.Deck.Cards[49] = cards.NewCard(cards.Seven, cards.Clubs)   // dealer 2
+	board.Deck.Cards[48] = cards.NewCard(cards.Five, cards.Diamonds) // player 2
+	board.Deal().Wait()
+
+	assert.IsType(t, &PlayerStage{}, board.Stage)
+
+	split, canSplit := board.Stage.Actions(board)["p"]
+	assert.True(t, canSplit)
+
+	split.Execute(board)
+
+	assert.Len(
+		t,
+		board.Bank.Bets,
+		2,
+		"Should have split into 2 bets.",
+	)
 }
 
 // If the player immediately gets blackjack in their initial hand, then the

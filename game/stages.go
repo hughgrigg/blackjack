@@ -80,7 +80,7 @@ func (ps PlayerStage) Begin(board *Board) {
 
 // Actions are hit or stand during the player stage.
 func (ps PlayerStage) Actions(board *Board) ActionSet {
-	return map[string]PlayerAction{
+	actions := map[string]PlayerAction{
 		"h": {
 			func(b *Board) bool {
 				b.HitPlayer()
@@ -93,6 +93,7 @@ func (ps PlayerStage) Actions(board *Board) ActionSet {
 				b.Stage = &Observing{}
 				b.action(func(b *Board) bool {
 					b.Stage = &DealerStage{}
+					b.Bank.ActiveBet().stand = true
 					go func() {
 						b.Dealer.Play(b)
 					}()
@@ -110,6 +111,16 @@ func (ps PlayerStage) Actions(board *Board) ActionSet {
 			"Double Down",
 		},
 	}
+	if board.Bank.ActiveBet().hand.CanSplit() {
+		actions["p"] = PlayerAction{
+			func(b *Board) bool {
+				b.Bank.ActiveBet().Split(b)
+				return true
+			},
+			"Split",
+		}
+	}
+	return actions
 }
 
 // DealerStage is the dealer's turn to play.

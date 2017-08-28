@@ -285,6 +285,20 @@ func (h *Hand) WinFactor(other *Hand) *big.Float {
 	return big.NewFloat(0)
 }
 
+// CanSplit is true if the hand can legally be split into two hands. This is
+// allowed when the hand contains two cards of the same rank.
+func (h *Hand) CanSplit() bool {
+	if len(h.Cards) != 2 {
+		return false
+	}
+	for _, first := range h.Cards[0].Values() {
+		if !util.IntsContain(first, h.Cards[1].Values()) {
+			return false
+		}
+	}
+	return true
+}
+
 // Render the hand as a string.
 func (h Hand) Render() string {
 	buffer := bytes.Buffer{}

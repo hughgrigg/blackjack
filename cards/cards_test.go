@@ -275,6 +275,47 @@ func TestHand_HasHard17(t *testing.T) {
 	assert.True(t, hand.HasHard17(), "Hand of A,K should have hard 17.")
 }
 
+// Should be able to tell if a hand is allowed to be split.
+func TestHand_CanSplit(t *testing.T) {
+	var hand Hand
+
+	hand = Hand{[]*Card{
+		NewCard(Five, Hearts),
+	}}
+	assert.False(t, hand.CanSplit())
+
+	hand = Hand{[]*Card{
+		NewCard(Five, Hearts),
+		NewCard(Five, Diamonds),
+	}}
+	assert.True(t, hand.CanSplit())
+
+	hand = Hand{[]*Card{
+		NewCard(Five, Hearts),
+		NewCard(Five, Diamonds),
+		NewCard(Five, Spades),
+	}}
+	assert.False(t, hand.CanSplit())
+
+	hand = Hand{[]*Card{
+		NewCard(Ten, Hearts),
+		NewCard(Ten, Diamonds),
+	}}
+	assert.True(t, hand.CanSplit())
+
+	hand = Hand{[]*Card{
+		NewCard(Ten, Hearts),
+		NewCard(Queen, Diamonds),
+	}}
+	assert.True(t, hand.CanSplit())
+
+	hand = Hand{[]*Card{
+		NewCard(Ace, Hearts),
+		NewCard(Ace, Diamonds),
+	}}
+	assert.True(t, hand.CanSplit())
+}
+
 // Should be able to calculate the possible scores for a hand, allowing for hard
 // and soft totals (due to ace being 1 or 11).
 func TestHand_Scores(t *testing.T) {
