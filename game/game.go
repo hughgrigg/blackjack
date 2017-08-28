@@ -231,14 +231,14 @@ func (b *Board) HitPlayer() *Board {
 			"Player busts at %d",
 			util.MinInt(b.Player.ActiveBet().Hand.Scores()),
 		))
-		b.ChangeStage(&DealerStage{})
 	}
 
 	// Has player got blackjack?
 	if b.Player.ActiveBet().Hand.HasBlackJack() {
 		b.Log.Push("[Player has blackjack!](fg-cyan)")
-		b.ChangeStage(&DealerStage{})
 	}
+
+	b.AssessPlayerStage()
 
 	return b
 }
@@ -277,9 +277,20 @@ func (b *Board) DoubleDown() *Board {
 		b.Log.Push("[Player has blackjack!](fg-cyan)")
 	}
 
-	b.ChangeStage(&DealerStage{})
+	// Always end a hand after doubling down on it.
+	b.Player.ActiveBet().stand = true
+
+	b.AssessPlayerStage()
 
 	return b
+}
+
+// AssessPlayerStage moves to the dealer stage if the player has finished all
+// of their hands.
+func (b *Board) AssessPlayerStage() {
+	if b.Player.IsFinished() {
+		b.ChangeStage(&DealerStage{})
+	}
 }
 
 //
@@ -380,6 +391,16 @@ func (p *Player) ActiveBet() *Bet {
 	return p.Bets[0]
 }
 
+// IsFinished checks if the player has any hands left to play on.
+func (p *Player) IsFinished() bool {
+	for _, bet := range p.Bets {
+		if !bet.IsFinished() {
+			return false
+		}
+	}
+	return true
+}
+
 var ac = accounting.Accounting{Symbol: "£", Precision: 2}
 
 // Render gets a rendering of the player's hands and bets as a string.
@@ -387,11 +408,19 @@ func (p Player) Render() string {
 	buffer := bytes.Buffer{}
 	last := len(p.Bets) - 1
 	for i, bet := range p.Bets {
-		buffer.WriteString(fmt.Sprintf(
-			"%s {[%s](fg-bold,fg-cyan)}",
-			bet.Hand.Render(),
-			ac.FormatMoneyBigFloat(bet.amount),
-		))
+		if bet.HasFocus(&p) {
+			buffer.WriteString(fmt.Sprintf(
+				"%s {[%s](fg-bold,fg-cyan,fg-underline)}",
+				bet.Hand.Render(),
+				ac.FormatMoneyBigFloat(bet.amount),
+			))
+		} else {
+			buffer.WriteString(fmt.Sprintf(
+				"[%s {%s}](fg-magenta)",
+				util.StripFormatting(bet.Hand.Render()),
+				ac.FormatMoneyBigFloat(bet.amount),
+			))
+		}
 		if i != last {
 			buffer.WriteString(" | ")
 		}
@@ -415,6 +444,26 @@ func (b *Bet) IsFinished() bool {
 		return true
 	}
 	return false
+}
+
+// HasFocus shows if the bet is the current focus, i.e. the one the player is
+// currently playing on.
+func (b *Bet) HasFocus(p *Player) bool {
+	if b.IsFinished() {
+		return false
+	}
+	seenThisBet := false
+	for _, bet := range p.Bets {
+		// If there's an active bet before this one, then this one does not have
+		// focus.
+		if bet == b {
+			seenThisBet = true
+		}
+		if (!seenThisBet) && (!bet.IsFinished()) {
+			return false
+		}
+	}
+	return true
 }
 
 // Split turns this bet and Hand into two separate bets and hands.
