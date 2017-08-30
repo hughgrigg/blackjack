@@ -92,15 +92,10 @@ func (ps PlayerStage) Actions(board *Board) ActionSet {
 			func(b *Board) bool {
 				b.Stage = &Observing{}
 				b.Player.ActiveBet().stand = true
-				b.action(func(b *Board) bool {
-					go func() {
-						b.Wait()
-						b.AssessPlayerStage()
-					}()
-					return true
-				}).Wait()
 				if !b.Player.ActiveBet().IsFinished() {
 					b.ChangeStage(&PlayerStage{})
+				} else {
+					b.AssessPlayerStage()
 				}
 				return true
 			},

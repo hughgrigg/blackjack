@@ -504,7 +504,7 @@ func TestPlayerStage_Actions_Stand(t *testing.T) {
 	stand.Execute(board)
 	board.wg.Wait()
 
-	assert.Equal(t, &Observing{}, board.Stage)
+	assert.Equal(t, &Conclusion{}, board.Stage)
 }
 
 // The player should be able to double down during the dealing stage.
