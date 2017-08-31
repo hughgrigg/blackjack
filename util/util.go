@@ -80,7 +80,7 @@ func AddBigFloat(x *big.Float, y float64) *big.Float {
 	return &newVal
 }
 
-var formatting = regexp.MustCompile("\\[(.*)]\\([a-z]+-[a-z]+\\)")
+var formatting = regexp.MustCompile("\\[(.*?)]\\([a-z]+-[a-z]+\\)")
 
 // StripFormatting removes termui formatting and returns a plain string.
 func StripFormatting(formatted string) string {

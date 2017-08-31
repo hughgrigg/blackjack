@@ -94,6 +94,7 @@ func (ps PlayerStage) Actions(board *Board) ActionSet {
 				b.Player.ActiveBet().stand = true
 				b.action(func(b *Board) bool {
 					go func() {
+						b.Wait()
 						b.AssessPlayerStage()
 					}()
 					return true
